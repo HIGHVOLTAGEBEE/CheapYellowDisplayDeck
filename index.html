@@ -250,7 +250,7 @@ function handleImageUpload(event) {
       let dataUrl = canvas.toDataURL('image/png');
       
       cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].imageData = dataUrl;
-      cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].icon = '/i_' + currentUploadButton.menu + '_' + currentUploadButton.button + '.bin';
+      cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].icon = '/i_' + currentUploadButton.menu + '_' + currentUploadButton.button + '.raw';
       cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].color = 0x0000;
       cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].text = '';
       
@@ -328,19 +328,15 @@ async function downloadPackage() {
     }
   }
   
-  zip.generateAsync({type: 'blob', compression: 'DEFLATE'}).then(function(blob) {
+  zip.generateAsync({type: 'blob'}).then(function(blob) {
     let url = URL.createObjectURL(blob);
     let a = document.createElement('a');
     a.href = url;
     a.download = 'cyd_deck_config.zip';
-    a.rel = 'noopener noreferrer';
-    a.target = '_self';
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 100);
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     showStatus('✓ Package downloaded!', 'success');
   });
 }
