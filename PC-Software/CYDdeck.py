@@ -36,7 +36,7 @@ class SerialThread(QThread):
                         if message:
                             self.message_received.emit(message)
                             
-                            # Prüfe auf Ready-Signal
+                            # Check for ready signal
                             if message == "CYD Deck Ready!" and not self.is_ready:
                                 self.is_ready = True
                                 self.ready_received.emit()
@@ -44,29 +44,29 @@ class SerialThread(QThread):
                                 # Führe Kommandos nur aus wenn Ready-Signal empfangen wurde
                                 self.process_keystroke(message)
                     except UnicodeDecodeError:
-                        self.error_occurred.emit("Dekodierungsfehler")
+                        self.error_occurred.emit("Decoding error")
                 time.sleep(0.01)
                 
         except serial.SerialException as e:
-            self.error_occurred.emit(f"Serieller Fehler: {str(e)}")
+            self.error_occurred.emit(f"Serial error: {str(e)}")
         finally:
             if self.serial_connection and self.serial_connection.is_open:
                 self.serial_connection.close()
     
     def process_keystroke(self, message):
         if message == "CYD Deck Ready!": return  # Ignoriere Ready-Signal
-        """Verarbeitet die empfangene Nachricht und drückt die entsprechenden Tasten"""
+        """Process the received message and press the corresponding keys"""
         try:
             # Entferne Leerzeichen
             message = message.strip()
             
             # Debug-Ausgabe
-            self.message_received.emit(f"DEBUG: Verarbeite '{message}'")
+            self.message_received.emit(f"DEBUG: Processing '{message}'")
             
             # Teile die Nachricht bei '+'
             keys = message.split('+')
             
-            # Konvertiere spezielle Tastenbezeichnungen
+            # Convert special key names
             key_mapping = {
                 'CTRL': 'ctrl',
                 'CONTROL': 'ctrl',
@@ -98,7 +98,7 @@ class SerialThread(QThread):
                 'F9': 'f9', 'F10': 'f10', 'F11': 'f11', 'F12': 'f12'
             }
             
-            # Konvertiere die Tasten
+            # Convert the keys
             processed_keys = []
             for key in keys:
                 key = key.strip()
@@ -110,24 +110,24 @@ class SerialThread(QThread):
                     # Konvertiere zu Kleinbuchstaben für normale Tasten
                     processed_keys.append(key.lower())
             
-            # Debug-Ausgabe
-            self.message_received.emit(f"DEBUG: Konvertiert zu {processed_keys}")
+            # Debug output
+            self.message_received.emit(f"DEBUG: Converted to {processed_keys}")
             
-            # Kleine Verzögerung vor dem Tastendruck
+            # Small delay before key press
             time.sleep(0.05)
             
             # Drücke die Tastenkombination
             if len(processed_keys) == 1:
                 keyboard.press_and_release(processed_keys[0])
-                self.key_pressed.emit(f"Gedrückt: {processed_keys[0]}")
+                self.key_pressed.emit(f"Pressed: {processed_keys[0]}")
             else:
                 # Kombiniere mehrere Tasten mit '+'
                 combo = '+'.join(processed_keys)
                 keyboard.press_and_release(combo)
-                self.key_pressed.emit(f"Gedrückt: {combo}")
+                self.key_pressed.emit(f"Pressed: {combo}")
                 
         except Exception as e:
-            self.error_occurred.emit(f"Tastenfehler: {str(e)}")
+            self.error_occurred.emit(f"Keystroke error: {str(e)}")
     
     def stop(self):
         self.running = False
@@ -160,8 +160,8 @@ class SerialKeyboardUI(QMainWindow):
         main_layout = QVBoxLayout(central_widget)
         main_layout.setSpacing(15)
         main_layout.setContentsMargins(20, 20, 20, 20)
-        
-        # Port Auswahl
+
+        # Port selection
         port_layout = QHBoxLayout()
         port_label = QLabel("Port:")
         port_label.setFont(QFont("Segoe UI", 10))
@@ -170,8 +170,8 @@ class SerialKeyboardUI(QMainWindow):
         self.update_ports()
         port_layout.addWidget(port_label)
         port_layout.addWidget(self.port_combo)
-        
-        # Baud Rate Auswahl
+
+        # Baud rate selection
         baud_layout = QHBoxLayout()
         baud_label = QLabel("Baud:")
         baud_label.setFont(QFont("Segoe UI", 10))
@@ -181,19 +181,19 @@ class SerialKeyboardUI(QMainWindow):
         self.baud_combo.setCurrentText("115200")
         baud_layout.addWidget(baud_label)
         baud_layout.addWidget(self.baud_combo)
-        
-        # Tastatur-Layout Auswahl
+
+        # Keyboard layout selection
         layout_layout = QHBoxLayout()
         layout_label = QLabel("Layout:")
         layout_label.setFont(QFont("Segoe UI", 10))
         self.layout_combo = QComboBox()
         self.layout_combo.setMinimumHeight(30)
-        self.layout_combo.addItems(["Auto", "DE (Deutsch)", "US (English)", "FR (Français)", 
-                                    "ES (Español)", "IT (Italiano)", "UK (English)"])
-        self.layout_combo.setCurrentText("DE (Deutsch)")
+        self.layout_combo.addItems(["Auto", "DE (German)", "US (English)", "FR (French)", 
+                                    "ES (Spanish)", "IT (Italian)", "UK (English)"])
+        self.layout_combo.setCurrentText("DE (German)")
         layout_layout.addWidget(layout_label)
         layout_layout.addWidget(self.layout_combo)
-        
+
         # Control Buttons
         button_layout = QHBoxLayout()
         self.start_button = QPushButton("Start")
@@ -215,7 +215,7 @@ class SerialKeyboardUI(QMainWindow):
             }
         """)
         self.start_button.clicked.connect(self.start_serial)
-        
+
         self.stop_button = QPushButton("Stop")
         self.stop_button.setMinimumHeight(35)
         self.stop_button.setEnabled(False)
@@ -236,10 +236,10 @@ class SerialKeyboardUI(QMainWindow):
             }
         """)
         self.stop_button.clicked.connect(self.stop_serial)
-        
+
         button_layout.addWidget(self.start_button)
         button_layout.addWidget(self.stop_button)
-        
+
         # Terminal
         terminal_label = QLabel("Terminal:")
         terminal_label.setFont(QFont("Segoe UI", 10))
@@ -255,8 +255,8 @@ class SerialKeyboardUI(QMainWindow):
                 padding: 5px;
             }
         """)
-        
-        # Layout zusammensetzen
+
+        # Assemble layout
         main_layout.addLayout(port_layout)
         main_layout.addLayout(baud_layout)
         main_layout.addLayout(layout_layout)
@@ -265,32 +265,32 @@ class SerialKeyboardUI(QMainWindow):
         main_layout.addWidget(self.terminal)
         
     def update_ports(self):
-        """Aktualisiert die Liste der verfügbaren COM-Ports"""
+        """Update the list of available COM ports"""
         self.port_combo.clear()
         ports = serial.tools.list_ports.comports()
         for port in ports:
             self.port_combo.addItem(f"{port.device} - {port.description}")
             
     def start_serial(self):
-        """Startet die serielle Verbindung"""
+        """Start the serial connection"""
         port = self.port_combo.currentText().split(' - ')[0]
         baudrate = int(self.baud_combo.currentText())
         
-        # Extrahiere Tastatur-Layout Code
+        # Extract keyboard layout code
         layout_text = self.layout_combo.currentText()
         layout_mapping = {
             "Auto": "auto",
-            "DE (Deutsch)": "de",
+            "DE (German)": "de",
             "US (English)": "us",
-            "FR (Français)": "fr",
-            "ES (Español)": "es",
-            "IT (Italiano)": "it",
+            "FR (French)": "fr",
+            "ES (Spanish)": "es",
+            "IT (Italian)": "it",
             "UK (English)": "uk"
         }
         keyboard_layout = layout_mapping.get(layout_text, "auto")
         
         if not port:
-            self.append_terminal("Fehler: Kein Port ausgewählt", "error")
+            self.append_terminal("Error: No port selected", "error")
             return
         
         self.serial_thread = SerialThread(port, baudrate, keyboard_layout)
@@ -306,11 +306,11 @@ class SerialKeyboardUI(QMainWindow):
         self.baud_combo.setEnabled(False)
         self.layout_combo.setEnabled(False)
         
-        self.append_terminal(f"Verbunden mit {port} @ {baudrate} baud", "success")
-        self.append_terminal("Warte auf 'CYD Deck Ready!' Signal...", "info")
+        self.append_terminal(f"Connected to {port} @ {baudrate} baud", "success")
+        self.append_terminal("Waiting for 'CYD Deck Ready!' signal...", "info")
         
     def stop_serial(self):
-        """Stoppt die serielle Verbindung"""
+        """Stop the serial connection"""
         if self.serial_thread:
             self.serial_thread.stop()
             self.serial_thread.wait()
@@ -321,26 +321,26 @@ class SerialKeyboardUI(QMainWindow):
         self.baud_combo.setEnabled(True)
         self.layout_combo.setEnabled(True)
         
-        self.append_terminal("Verbindung getrennt", "info")
+        self.append_terminal("Connection closed", "info")
         
     def on_message_received(self, message):
-        """Zeigt empfangene Nachricht im Terminal"""
-        self.append_terminal(f"Empfangen: {message}", "message")
+        """Show received message in the terminal"""
+        self.append_terminal(f"Received: {message}", "message")
         
     def on_key_pressed(self, key_info):
-        """Zeigt gedrückte Taste im Terminal"""
+        """Show pressed key in the terminal"""
         self.append_terminal(key_info, "key")
     
     def on_ready(self):
-        """Wird aufgerufen wenn 'CYD Deck Ready!' empfangen wurde"""
-        self.append_terminal("✓ CYD Deck ist bereit! Kommandos werden jetzt ausgeführt.", "success")
+        """Called when 'CYD Deck Ready!' is received"""
+        self.append_terminal("✓ CYD Deck is ready! Commands will now be executed.", "success")
         
     def on_error(self, error):
-        """Zeigt Fehler im Terminal"""
+        """Show errors in the terminal"""
         self.append_terminal(error, "error")
         
     def append_terminal(self, text, msg_type="info"):
-        """Fügt Text zum Terminal hinzu mit Farbcodierung"""
+        """Append text to the terminal with color coding"""
         colors = {
             "message": "#61afef",  # Blau
             "key": "#98c379",      # Grün
@@ -352,7 +352,7 @@ class SerialKeyboardUI(QMainWindow):
         self.terminal.append(f'<span style="color: {color};">{text}</span>')
         
     def closeEvent(self, event):
-        """Schließt die serielle Verbindung beim Beenden"""
+        """Close the serial connection on exit"""
         if self.serial_thread and self.serial_thread.isRunning():
             self.serial_thread.stop()
             self.serial_thread.wait()
