@@ -1,22 +1,32 @@
+# 🟡 Cheap Yellow Display Deck (CYDDECK)
+
+The **Cheap Yellow Display Deck (CYDDECK)** is a low-cost alternative to the **Elgato Stream Deck**, based on the **Cheap Yellow Display**.  
+It supports both touchscreen types and offers extreme flexibility for customization and control. 😄
 
 ---
-The CeapYellowDisplayDeck (CYDDECK) :D
 
-This is an cheaper alternative to the Elgato Stream-Deck
-based on the Cheap Yellow Display. It has a version 
-for both touchscrren types and is extreamly flexibale.
----
+## 🖥️ PC Software Installation
 
----
-To Install the PC Software:
-1. Make sure you have Python 3 or newer installed! 
-2. Run the .bat file named install to install all needed libarys.
-3. Click the start.bat file and the PC software should start up.
-4. Now just connect your CYDDECK and click start as well 
-   as to select your keyboard layout type.
----
+1. Make sure **Python 3** (or newer) is installed on your system.  
+2. Run the batch file named **`install.bat`** to install all required libraries.  
+3. Start the software by double-clicking **`start.bat`**.  
+4. Connect your **CYDDECK**, click **Start**, and select your **keyboard layout type**.
 
 ---
-Here is the CeapYellowDisplayDeck Web-Editor for configuration:
-https://highvoltagebee.github.io/CheapYellowDisplayDeck/
+
+## 🌐 Web Editor
+
+You can configure your CYDDECK easily using the web editor:  
+👉 [CheapYellowDisplayDeck Web Editor](https://highvoltagebee.github.io/CheapYellowDisplayDeck/)
+
 ---
+
+## ⚙️ Notes
+
+- The CYDDECK works with both **touchscreen versions** of the Cheap Yellow Display.
+- It is designed to be **affordable, flexible, and open-source**.
+- Contributions and suggestions are always welcome! 💡
+
+---
+
+Made with ❤️ by [HighVoltageBee](https://github.com/HighVoltageBee)
