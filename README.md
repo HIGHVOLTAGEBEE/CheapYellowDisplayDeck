@@ -29,4 +29,4 @@ You can configure your CYDDECK easily using the web editor:
 
 ---
 
-Made with ❤️ by [HighVoltageBee](https://github.com/HighVoltageBee)
+Made with ❤️ by [HIGHVOLTAGEBEE](https://github.com/HighVoltageBee)
