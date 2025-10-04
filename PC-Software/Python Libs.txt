@@ -1,2 +1,0 @@
-Open CMD and paste in this commend:
-pip install pywebview pyqt6 pyserial keyboard
