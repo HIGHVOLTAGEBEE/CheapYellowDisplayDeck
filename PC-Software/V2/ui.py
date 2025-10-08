@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QComboBox, QPushButton, QTextEdit, QLabel, 
                              QGroupBox, QLineEdit, QCheckBox)
 from PyQt6.QtGui import QPalette, QColor, QFont
+from PyQt6.QtCore import QTimer
 from serial_comm import SerialThread
 from kb_handler import CommandParser
 
@@ -20,6 +21,12 @@ class SerialKeyboardUI(QMainWindow):
         self.serial_thread = None
         self.last_key_pressed = "None"
         self.commands_executed = 0
+        
+        # Setup port refresh timer
+        self.port_timer = QTimer()
+        self.port_timer.timeout.connect(self._update_ports)
+        self.port_timer.start(250)  # Check every second
+        
         self.init_ui()
     
     def init_ui(self):
@@ -82,7 +89,7 @@ class SerialKeyboardUI(QMainWindow):
         layout.setSpacing(4)
         
         title_layout = QHBoxLayout()
-        title = QLabel("⌨️  ESP32 Keyboard Bridge")
+        title = QLabel("ESP32 Keyboard Bridge")
         title.setFont(QFont("Segoe UI", 18, QFont.Weight.Bold))
         title.setStyleSheet("color: #8b5cf6; padding: 8px 0;")
         
@@ -116,14 +123,8 @@ class SerialKeyboardUI(QMainWindow):
         self.port_combo.setMinimumHeight(36)
         self._update_ports()
         
-        refresh_btn = QPushButton("🔄 ")
-        refresh_btn.setMaximumWidth(50)
-        refresh_btn.setMinimumHeight(36)
-        refresh_btn.clicked.connect(self._update_ports)
-        
         port_layout.addWidget(port_label)
         port_layout.addWidget(self.port_combo)
-        port_layout.addWidget(refresh_btn)
         
         baud_layout = QHBoxLayout()
         baud_label = QLabel("Baud Rate:")
@@ -132,7 +133,7 @@ class SerialKeyboardUI(QMainWindow):
         
         self.baud_combo = QComboBox()
         self.baud_combo.setMinimumHeight(36)
-        self.baud_combo.addItems(["9600", "115200", "2000000"])
+        self.baud_combo.addItems(["9600", "115200", "1000000", "2000000"])
         self.baud_combo.setCurrentText("2000000")
         
         baud_layout.addWidget(baud_label)
@@ -152,16 +153,40 @@ class SerialKeyboardUI(QMainWindow):
         
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(12)
-        
-        self.start_button = QPushButton("▶  Start Connection")
+
+        self.start_button = QPushButton("   Start Connection")
         self.start_button.setMinimumHeight(44)
+        self.start_button.setStyleSheet("""
+            QPushButton {
+                background-color: #22c55e;
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+            }
+            QPushButton:disabled {
+                background-color: #166534;
+                color: #86efac;
+            }
+        """)
         self.start_button.clicked.connect(self._start_serial)
-        
-        self.stop_button = QPushButton("⏹  Stop Connection")
+
+        self.stop_button = QPushButton("   Stop Connection")
         self.stop_button.setMinimumHeight(44)
+        self.stop_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ef4444;
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+            }
+            QPushButton:disabled {
+                background-color: #991b1b;
+                color: #fca5a5;
+            }
+        """)
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self._stop_serial)
-        
+
         btn_layout.addWidget(self.start_button)
         btn_layout.addWidget(self.stop_button)
         
@@ -177,7 +202,7 @@ class SerialKeyboardUI(QMainWindow):
         group = QGroupBox("Status")
         layout = QHBoxLayout()
         
-        self.status_label = QLabel("⚫  Disconnected")
+        self.status_label = QLabel("   Disconnected")
         self.status_label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         self.status_label.setStyleSheet("color: #64748b;")
         
@@ -211,6 +236,8 @@ class SerialKeyboardUI(QMainWindow):
         test_btn = QPushButton("Send")
         test_btn.setMinimumHeight(40)
         test_btn.setMinimumWidth(90)
+        # orange test button
+        test_btn.setStyleSheet("background-color: #f59e0b; color: white; border-radius: 8px; font-weight: 600;")
         test_btn.clicked.connect(self._send_test)
         
         input_layout.addWidget(self.test_input)
@@ -220,6 +247,8 @@ class SerialKeyboardUI(QMainWindow):
         for label, cmd in [("CTRL+C", "CTRL+C"), ("CTRL+V", "CTRL+V"), ("WIN+D", "WIN+D")]:
             btn = QPushButton(label)
             btn.setMinimumHeight(34)
+            # orange quick test buttons
+            btn.setStyleSheet("background-color: #f59e0b; color: white; border-radius: 6px; font-weight: 600;")
             btn.clicked.connect(lambda _, c=cmd: self._quick_test(c))
             quick_layout.addWidget(btn)
         
@@ -289,7 +318,7 @@ class SerialKeyboardUI(QMainWindow):
         self.baud_combo.setEnabled(False)
         self.layout_combo.setEnabled(False)
         
-        self.status_label.setText("🟡  Connecting...")
+        self.status_label.setText("   Connecting...")
         self.status_label.setStyleSheet("color: #fbbf24;")
         self._log(f"📡  Connecting to {port} @ {baudrate}", "info")
     
@@ -304,7 +333,7 @@ class SerialKeyboardUI(QMainWindow):
         self.baud_combo.setEnabled(True)
         self.layout_combo.setEnabled(True)
         
-        self.status_label.setText("⚫  Disconnected")
+        self.status_label.setText("    Disconnected")
         self.status_label.setStyleSheet("color: #64748b;")
         self._log("📴  Connection closed", "info")
     
@@ -338,7 +367,7 @@ class SerialKeyboardUI(QMainWindow):
         self._log(f"{'✅' if success else '❌'}  {msg}", "success" if success else "error")
     
     def _on_ready(self):
-        self.status_label.setText("🟢  Connected & Ready")
+        self.status_label.setText("   Connected & Ready")
         self.status_label.setStyleSheet("color: #22c55e;")
         self._log("✅  Device ready", "success")
     
