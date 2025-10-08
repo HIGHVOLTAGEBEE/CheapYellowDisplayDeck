@@ -7,6 +7,9 @@ from PyQt6.QtCore import QThread, pyqtSignal, Qt, QTimer
 from PyQt6.QtGui import QPalette, QColor, QFont
 import keyboard
 import time
+import os
+import subprocess
+import shutil
 
 
 class SerialThread(QThread):
@@ -59,6 +62,38 @@ class SerialThread(QThread):
         try:
             # Entferne Leerzeichen
             message = message.strip()
+            # Check for EXECUTE command, format: EXECUTE+program_or_path
+            parts = message.split('+')
+            if parts and parts[0].upper() == 'EXECUTE' and len(parts) >= 2:
+                prog = '+'.join(parts[1:]).strip()
+                # Debug info
+                self.message_received.emit(f"DEBUG: Execute command received: {prog}")
+                try:
+                    # Windows: try os.startfile first (works for file associations)
+                    if os.name == 'nt':
+                        try:
+                            os.startfile(prog)
+                        except Exception:
+                            # Try to find in PATH
+                            prog_path = shutil.which(prog)
+                            if prog_path:
+                                subprocess.Popen([prog_path], shell=False)
+                            else:
+                                # fallback to shell execution
+                                subprocess.Popen(prog, shell=True)
+                    else:
+                        # POSIX: try to find executable in PATH
+                        prog_path = shutil.which(prog)
+                        if prog_path:
+                            subprocess.Popen([prog_path])
+                        else:
+                            # fallback to shell execution (may require full path)
+                            subprocess.Popen(prog, shell=True)
+
+                    self.message_received.emit(f"Executing: {prog}")
+                except Exception as e:
+                    self.error_occurred.emit(f"Execute error: {str(e)}")
+                return
             
             # Debug-Ausgabe
             self.message_received.emit(f"DEBUG: Processing '{message}'")
@@ -177,8 +212,8 @@ class SerialKeyboardUI(QMainWindow):
         baud_label.setFont(QFont("Segoe UI", 10))
         self.baud_combo = QComboBox()
         self.baud_combo.setMinimumHeight(30)
-        self.baud_combo.addItems(["9600", "19200", "38400", "57600", "115200", "230400"])
-        self.baud_combo.setCurrentText("115200")
+        self.baud_combo.addItems(["9600", "19200", "38400", "57600", "115200", "230400", "1000000", "2000000"])
+        self.baud_combo.setCurrentText("2000000")
         baud_layout.addWidget(baud_label)
         baud_layout.addWidget(self.baud_combo)
 
