@@ -151,7 +151,7 @@ class KeyExecutor:
             kb.press_and_release('+'.join(command.modifiers + command.keys))
             time.sleep(0.05)
         if command.text_content:
-            kb.write(command.text_content, delay=0.01)
+            kb.write(command.text_content, delay=0.0002)
         preview = command.text_content[:30] + '...' if len(command.text_content) > 30 else command.text_content
         return True, f"Typed: {preview}"
     
