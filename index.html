@@ -17,6 +17,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0e27;color:#e4e7eb;pa
 .btn-secondary:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(59,130,246,0.5)}
 .btn-danger{background:linear-gradient(135deg,#ef4444 0%,#b91c1c 100%);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;transition:all 0.3s;box-shadow:0 2px 8px rgba(239,68,68,0.3)}
 .btn-danger:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(239,68,68,0.5)}
+.btn-help{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;transition:all 0.3s;box-shadow:0 2px 8px rgba(16,185,129,0.3)}
+.btn-help:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(16,185,129,0.5)}
 .menu-tabs{display:flex;gap:8px;overflow-x:auto;padding:20px 30px;background:#12172e;border-bottom:1px solid #2d3748;scrollbar-width:thin;scrollbar-color:#4a5568 #1a202c}
 .menu-tabs::-webkit-scrollbar{height:8px}
 .menu-tabs::-webkit-scrollbar-track{background:#1a202c}
@@ -31,12 +33,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0e27;color:#e4e7eb;pa
 .menu-header input{flex:1;min-width:250px;background:#0f1629;color:#e4e7eb;border:2px solid #374151;padding:12px 16px;border-radius:10px;font-size:15px;transition:all 0.3s}
 .menu-header input:focus{outline:none;border-color:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,0.1)}
 .menu-info{display:flex;gap:15px;align-items:center;flex-wrap:wrap}
+.color-controls{background:#0f1629;padding:20px;border-radius:12px;margin-bottom:20px;border:1px solid #2d3748}
+.color-controls h3{color:#a78bfa;font-size:16px;margin-bottom:15px;font-weight:600}
+.color-options{display:flex;gap:15px;flex-wrap:wrap;align-items:center}
+.color-select-group{display:flex;gap:10px;align-items:center}
+.btn-color{background:#1f2937;color:#e4e7eb;border:1px solid #374151;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;transition:all 0.3s}
+.btn-color:hover{background:#374151;border-color:#8b5cf6}
 label.select-label{color:#9ca3af;font-size:13px;font-weight:500;margin-right:8px}
 select{background:#0f1629;color:#e4e7eb;border:2px solid #374151;padding:10px 14px;border-radius:8px;font-size:14px;cursor:pointer;transition:all 0.3s}
 select:focus{outline:none;border-color:#8b5cf6}
 .btn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;margin-top:25px}
-.btn-config{background:#0f1629;padding:24px;border-radius:12px;border:1px solid #2d3748;transition:all 0.3s}
+.btn-config{background:#0f1629;padding:24px;border-radius:12px;border:1px solid #2d3748;transition:all 0.3s;position:relative}
 .btn-config:hover{border-color:#4a5568;box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+.btn-config.has-image{border-color:#10b981}
+.image-indicator{position:absolute;top:10px;right:10px;background:#10b981;color:#fff;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600}
 .btn-config h3{color:#a78bfa;font-size:15px;margin-bottom:18px;font-weight:600;padding-bottom:12px;border-bottom:1px solid #2d3748}
 .btn-config label{display:block;margin:14px 0 8px;color:#9ca3af;font-size:13px;font-weight:500}
 .btn-config input[type=text]{width:100%;background:#1a1f3a;color:#e4e7eb;border:1px solid #374151;padding:10px 12px;border-radius:8px;font-size:14px;transition:all 0.3s}
@@ -62,26 +72,79 @@ input[type=file]{display:none}
 .status.success{background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff}
 .status.error{background:linear-gradient(135deg,#ef4444 0%,#b91c1c 100%);color:#fff}
 @keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:2000;align-items:center;justify-content:center}
+.modal.active{display:flex}
+.modal-content{background:#161b33;border-radius:16px;padding:40px;max-width:800px;max-height:80vh;overflow-y:auto;border:2px solid #4a5568;box-shadow:0 8px 32px rgba(0,0,0,0.6);position:relative}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px;padding-bottom:15px;border-bottom:2px solid #2d3748}
+.modal-header h2{color:#a78bfa;font-size:24px;font-weight:600}
+.modal-close{background:#ef4444;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500}
+.modal-close:hover{background:#dc2626}
+.modal-body{color:#e4e7eb;line-height:1.8;font-size:15px}
+.modal-body h3{color:#a78bfa;margin-top:20px;margin-bottom:10px;font-size:18px}
+.modal-body p{margin-bottom:15px}
+.modal-body ul{margin-left:20px;margin-bottom:15px}
+.modal-body li{margin-bottom:8px}
 canvas{display:none}
 </style>
 </head>
 <body>
 <div class='top-bar'>
-<h1>🎮 CheapYellowDisplayDeck Editor by HIGHVOLTAGEBEE</h1>
+<h1>CheapYellowDisplayDeck Editor by HIGHVOLTAGEBEE</h1>
 <div class='controls'>
-<button class='btn-primary' onclick='downloadPackage()'>📦 Download Package (ZIP)</button>
-<button class='btn-secondary' onclick='loadConfig()'>📂 Load config.json</button>
-<button class='btn-secondary' onclick='addMenu()'>➕ Add Menu</button>
-<button class='btn-secondary' onclick='location.reload()'>↻ Reset Editor</button>
+<button class='btn-primary' onclick='downloadPackage()'>Download Package (ZIP)</button>
+<button class='btn-secondary' onclick='loadConfig()'>Load config.json</button>
+<button class='btn-secondary' onclick='addMenu()'>Add Menu</button>
+<button class='btn-help' onclick='openHelp()'>Help</button>
+<button class='btn-secondary' onclick='location.reload()'>Reset Editor</button>
 </div>
 </div>
 
 <input type='file' id='fileInput' accept='.json' onchange='handleFileLoad(event)'>
 <input type='file' id='imageInput' accept='image/*' onchange='handleImageUpload(event)'>
+<input type='file' id='zipInput' accept='.zip' onchange='handleZipLoad(event)'>
 
 <div class='menu-tabs' id='tabs'></div>
 <div class='container' id='menus'></div>
 <div class='status' id='status'></div>
+
+<div class='modal' id='helpModal'>
+<div class='modal-content'>
+<div class='modal-header'>
+<h2>📖 Anleitung</h2>
+<button class='modal-close' onclick='closeHelp()'>✕ Schließen</button>
+</div>
+<div class='modal-body' id='helpContent'>
+<h3>Willkommen zum CYD Deck Editor</h3>
+<ul>
+<ul>
+  <li><strong>Hotkey-Format:</strong> Tasten mit <code>+</code> verbinden, z.B. <code>CTRL+C</code>, <code>ALT+F4</code>, <code>WIN+D</code></li>
+  <li><strong>Modifikatoren:</strong> CTRL, ALT, SHIFT, WIN, FN</li>
+  <li><strong>Sondertasten:</strong> ENTER, SPACE, TAB, ESC, BACKSPACE, DELETE, F1-F24</li>
+  <li><strong>Navigation:</strong> UP, DOWN, LEFT, RIGHT, HOME, END, PAGEUP, PAGEDOWN</li>
+  <li><strong>Programme starten:</strong> <code>EXECUTE+pfad/zum/programm.exe</code></li>
+  <li><strong>Text eingeben:</strong> <code>"Ihr Text hier"</code> oder <code>CTRL+"Text mit Modifikator"</code></li>
+</ul>
+<h3>Grundlegende Funktionen</h3>
+<ul>
+<li><strong>Menüs erstellen:</strong> Klicke auf "Add Menu" um neue Menüs hinzuzufügen</li>
+<li><strong>Buttons konfigurieren:</strong> Jedes Menü hat 12 konfigurierbare Buttons</li>
+<li><strong>Bilder hochladen:</strong> Klicke auf den Upload-Bereich um 67x67px Icons hinzuzufügen</li>
+<li><strong>Farben setzen:</strong> Nutze die Massenfarben-Funktionen für schnelles Styling</li>
+<li><strong>Config speichern:</strong> Lade dein fertiges Paket als ZIP herunter</li>
+</ul>
+<h3>Massenfarben-Funktion</h3>
+<p>Mit den neuen Buttons kannst du Farben für mehrere Buttons gleichzeitig setzen:</p>
+<ul>
+<li><strong>Einzelner Button:</strong> Wähle einen Button aus dem Dropdown</li>
+<li><strong>Ganze Reihe:</strong> Setze alle Buttons einer horizontalen Reihe (1-4)</li>
+<li><strong>Ganze Spalte:</strong> Setze alle Buttons einer vertikalen Spalte (1-3)</li>
+<li><strong>Alle Buttons:</strong> Ändere alle 12 Buttons auf einmal</li>
+</ul>
+<p><em>Hinweis: Buttons mit Bildern werden automatisch übersprungen.</em></p>
+</div>
+</div>
+</div>
+
 <canvas id='canvas'></canvas>
 
 <script>
@@ -123,6 +186,58 @@ function switchMenu(idx) {
   render();
 }
 
+function openHelp() {
+  document.getElementById('helpModal').classList.add('active');
+}
+
+function closeHelp() {
+  document.getElementById('helpModal').classList.remove('active');
+}
+
+function applyBulkColor() {
+  let colorType = document.getElementById('colorType_' + activeMenu).value;
+  let colorValue = document.getElementById('bulkColorPicker_' + activeMenu).value;
+  let rgb565 = hexToRgb565(colorValue);
+  let menu = cfg.menus[activeMenu];
+  
+  if(colorType === 'all') {
+    for(let i = 0; i < 12; i++) {
+      if(!menu.buttons[i].imageData) {
+        menu.buttons[i].color = rgb565;
+      }
+    }
+    showStatus('✓ Farbe auf alle Buttons angewendet!', 'success');
+  } else if(colorType.startsWith('row')) {
+    let row = parseInt(colorType.replace('row', '')) - 1;
+    for(let i = 0; i < 3; i++) {
+      let idx = row * 3 + i;
+      if(!menu.buttons[idx].imageData) {
+        menu.buttons[idx].color = rgb565;
+      }
+    }
+    showStatus('✓ Farbe auf Reihe angewendet!', 'success');
+  } else if(colorType.startsWith('col')) {
+    let col = parseInt(colorType.replace('col', '')) - 1;
+    for(let i = 0; i < 4; i++) {
+      let idx = i * 3 + col;
+      if(!menu.buttons[idx].imageData) {
+        menu.buttons[idx].color = rgb565;
+      }
+    }
+    showStatus('✓ Farbe auf Spalte angewendet!', 'success');
+  } else {
+    let btnIdx = parseInt(colorType.replace('btn', '')) - 1;
+    if(!menu.buttons[btnIdx].imageData) {
+      menu.buttons[btnIdx].color = rgb565;
+      showStatus('✓ Farbe auf Button angewendet!', 'success');
+    } else {
+      showStatus('✗ Button hat bereits ein Bild!', 'error');
+    }
+  }
+  
+  render();
+}
+
 function render() {
   let tabs = '';
   for(let m = 0; m < cfg.menuCount; m++) {
@@ -142,11 +257,38 @@ function render() {
       }
     }
     
-    h += "</select><button class='btn-danger' onclick='delMenu(" + m + ")'>🗑️ Delete Menu</button></div></div><div class='btn-grid'>";
+    h += "</select><button class='btn-danger' onclick='delMenu(" + m + ")'>🗑️ Delete Menu</button></div></div>";
+    
+    h += "<div class='color-controls'><h3>🎨 Massenfarben-Funktion</h3><div class='color-options'>";
+    h += "<div class='color-select-group'><label class='select-label'>Bereich:</label>";
+    h += "<select id='colorType_" + m + "'>";
+    h += "<option value='all'>Alle Buttons</option>";
+    for(let r = 1; r <= 4; r++) {
+      h += "<option value='row" + r + "'>Reihe " + r + "</option>";
+    }
+    for(let c = 1; c <= 3; c++) {
+      h += "<option value='col" + c + "'>Spalte " + c + "</option>";
+    }
+    for(let b = 1; b <= 12; b++) {
+      h += "<option value='btn" + b + "'>Button " + b + "</option>";
+    }
+    h += "</select></div>";
+    h += "<label class='select-label'>Farbe:</label>";
+    h += "<div class='color-row'><div class='color-preview' id='bulkColorPreview_" + m + "' style='background:#2196f3' onclick='document.getElementById(\"bulkColorPicker_" + m + "\").click()'></div>";
+    h += "<input type='color' id='bulkColorPicker_" + m + "' style='display:none' value='#2196f3' onchange='document.getElementById(\"bulkColorPreview_" + m + "\").style.background=this.value'>";
+    h += "<button class='btn-color' onclick='applyBulkColor()'>Farbe anwenden</button></div>";
+    h += "</div></div>";
+    
+    h += "<div class='btn-grid'>";
     
     for(let i = 0; i < 12; i++) {
       let b = menu.buttons[i];
-      h += "<div class='btn-config'><h3>Button " + (i + 1) + "</h3>";
+      let hasImage = b.imageData ? " has-image" : "";
+      h += "<div class='btn-config" + hasImage + "'>";
+      if(b.imageData) {
+        h += "<span class='image-indicator'>📷 Bild</span>";
+      }
+      h += "<h3>Button " + (i + 1) + "</h3>";
       h += "<div class='checkbox-label'><input type='checkbox' " + (b.active ? "checked" : "") + " onchange='cfg.menus[" + m + "].buttons[" + i + "].active=this.checked'><span>Active</span></div>";
       
       if(!b.imageData) {
@@ -394,9 +536,14 @@ function loadConfig() {
   document.getElementById('fileInput').click();
 }
 
-function handleFileLoad(event) {
+async function handleFileLoad(event) {
   let file = event.target.files[0];
   if(!file) return;
+  
+  if(file.name.endsWith('.zip')) {
+    handleZipLoad(event);
+    return;
+  }
   
   let reader = new FileReader();
   reader.onload = function(e) {
@@ -424,6 +571,91 @@ function handleFileLoad(event) {
   reader.readAsText(file);
   
   event.target.value = '';
+}
+
+async function handleZipLoad(event) {
+  let file = event.target.files[0];
+  if(!file) return;
+  
+  showStatus('⏳ Loading ZIP package...', 'success');
+  
+  try {
+    let zip = await JSZip.loadAsync(file);
+    
+    let configFile = zip.file('config.json');
+    if(!configFile) {
+      showStatus('✗ No config.json found in ZIP!', 'error');
+      return;
+    }
+    
+    let configText = await configFile.async('text');
+    let loaded = JSON.parse(configText);
+    
+    if(!loaded.menus || !loaded.menuCount) {
+      showStatus('✗ Invalid config file!', 'error');
+      return;
+    }
+    
+    for(let m = 0; m < loaded.menuCount; m++) {
+      for(let i = 0; i < 12; i++) {
+        let btn = loaded.menus[m].buttons[i];
+        btn.imageData = null;
+        
+        if(btn.icon && btn.icon.startsWith('/i_')) {
+          let filename = btn.icon.substring(1);
+          let imageFile = zip.file(filename);
+          
+          if(imageFile) {
+            let rawData = await imageFile.async('uint8array');
+            let dataUrl = await rgb565ToDataUrl(rawData);
+            btn.imageData = dataUrl;
+          }
+        }
+      }
+    }
+    
+    cfg = loaded;
+    activeMenu = 0;
+    render();
+    showStatus('✓ ZIP package loaded with images!', 'success');
+  } catch(err) {
+    showStatus('✗ Failed to load ZIP: ' + err.message, 'error');
+  }
+  
+  event.target.value = '';
+}
+
+function rgb565ToDataUrl(rgb565Data) {
+  return new Promise((resolve) => {
+    let canvas = document.getElementById('canvas');
+    let ctx = canvas.getContext('2d');
+    
+    canvas.width = 67;
+    canvas.height = 67;
+    
+    let imageData = ctx.createImageData(67, 67);
+    let pixels = imageData.data;
+    
+    for(let i = 0; i < 67 * 67; i++) {
+      let rgb565 = (rgb565Data[i * 2] << 8) | rgb565Data[i * 2 + 1];
+      
+      let r = ((rgb565 >> 11) & 0x1F) << 3;
+      let g = ((rgb565 >> 5) & 0x3F) << 2;
+      let b = (rgb565 & 0x1F) << 3;
+      
+      r = r | (r >> 5);
+      g = g | (g >> 6);
+      b = b | (b >> 5);
+      
+      pixels[i * 4] = r;
+      pixels[i * 4 + 1] = g;
+      pixels[i * 4 + 2] = b;
+      pixels[i * 4 + 3] = 255;
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    resolve(canvas.toDataURL('image/png'));
+  });
 }
 
 render();
