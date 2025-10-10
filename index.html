@@ -23,9 +23,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#0a0e27;color:#e4e7eb;pa
 .menu-tabs::-webkit-scrollbar{height:8px}
 .menu-tabs::-webkit-scrollbar-track{background:#1a202c}
 .menu-tabs::-webkit-scrollbar-thumb{background:#4a5568;border-radius:4px}
-.menu-tab{background:#1f2937;color:#9ca3af;border:1px solid #374151;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;white-space:nowrap;transition:all 0.3s}
+.menu-tab{background:#1f2937;color:#9ca3af;border:1px solid #374151;padding:12px 24px;border-radius:8px;cursor:move;font-size:14px;font-weight:500;white-space:nowrap;transition:all 0.3s;position:relative;user-select:none;display:flex;align-items:center;gap:10px}
 .menu-tab:hover{background:#374151;color:#e4e7eb}
 .menu-tab.active{background:linear-gradient(135deg,#8b5cf6 0%,#6d28d9 100%);color:#fff;border-color:#8b5cf6;box-shadow:0 2px 8px rgba(139,92,246,0.4)}
+.menu-tab.dragging{opacity:0.5;transform:scale(0.95)}
+.menu-tab.drag-over{border-color:#10b981;border-width:2px}
+.menu-tab-actions{display:flex;gap:4px}
+.tab-btn{background:rgba(0,0,0,0.3);border:none;color:#fff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;transition:all 0.2s}
+.tab-btn:hover{background:rgba(0,0,0,0.5)}
+.tab-btn.copy{background:rgba(16,185,129,0.3)}
+.tab-btn.copy:hover{background:rgba(16,185,129,0.5)}
 .container{max-width:1400px;margin:0 auto;padding:30px}
 .menu{background:#161b33;padding:30px;border-radius:16px;margin-bottom:25px;border:1px solid #2d3748;box-shadow:0 4px 16px rgba(0,0,0,0.3);display:none}
 .menu.active{display:block}
@@ -98,35 +105,33 @@ canvas{display:none}
 <button class='btn-secondary' onclick='location.reload()'>Reset Editor</button>
 </div>
 </div>
-
 <input type='file' id='fileInput' accept='.json' onchange='handleFileLoad(event)'>
 <input type='file' id='imageInput' accept='image/*' onchange='handleImageUpload(event)'>
 <input type='file' id='zipInput' accept='.zip' onchange='handleZipLoad(event)'>
-
 <div class='menu-tabs' id='tabs'></div>
 <div class='container' id='menus'></div>
 <div class='status' id='status'></div>
-
 <div class='modal' id='helpModal'>
 <div class='modal-content'>
 <div class='modal-header'>
 <h2>📖 Anleitung</h2>
 <button class='modal-close' onclick='closeHelp()'>✕ Schließen</button>
 </div>
-<div class='modal-body' id='helpContent'>
+<div class='modal-body'>
 <h3>Willkommen zum CYD Deck Editor</h3>
 <ul>
-<ul>
-  <li><strong>Hotkey-Format:</strong> Tasten mit <code>+</code> verbinden, z.B. <code>CTRL+C</code>, <code>ALT+F4</code>, <code>WIN+D</code></li>
-  <li><strong>Modifikatoren:</strong> CTRL, ALT, SHIFT, WIN, FN</li>
-  <li><strong>Sondertasten:</strong> ENTER, SPACE, TAB, ESC, BACKSPACE, DELETE, F1-F24</li>
-  <li><strong>Navigation:</strong> UP, DOWN, LEFT, RIGHT, HOME, END, PAGEUP, PAGEDOWN</li>
-  <li><strong>Programme starten:</strong> <code>EXECUTE+pfad/zum/programm.exe</code></li>
-  <li><strong>Text eingeben:</strong> <code>"Ihr Text hier"</code> oder <code>CTRL+"Text mit Modifikator"</code></li>
+<li><strong>Hotkey-Format:</strong> Tasten mit <code>+</code> verbinden, z.B. <code>CTRL+C</code>, <code>ALT+F4</code>, <code>WIN+D</code></li>
+<li><strong>Modifikatoren:</strong> CTRL, ALT, SHIFT, WIN, FN</li>
+<li><strong>Sondertasten:</strong> ENTER, SPACE, TAB, ESC, BACKSPACE, DELETE, F1-F24</li>
+<li><strong>Navigation:</strong> UP, DOWN, LEFT, RIGHT, HOME, END, PAGEUP, PAGEDOWN</li>
+<li><strong>Programme starten:</strong> <code>EXECUTE+pfad/zum/programm.exe</code></li>
+<li><strong>Text eingeben:</strong> <code>"Ihr Text hier"</code> oder <code>CTRL+"Text mit Modifikator"</code></li>
 </ul>
 <h3>Grundlegende Funktionen</h3>
 <ul>
 <li><strong>Menüs erstellen:</strong> Klicke auf "Add Menu" um neue Menüs hinzuzufügen</li>
+<li><strong>Menüs verschieben:</strong> Ziehe Menü-Tabs per Drag & Drop um die Reihenfolge zu ändern</li>
+<li><strong>Menüs kopieren:</strong> Klicke auf den Kopieren-Button in einem Menü-Tab</li>
 <li><strong>Buttons konfigurieren:</strong> Jedes Menü hat 12 konfigurierbare Buttons</li>
 <li><strong>Bilder hochladen:</strong> Klicke auf den Upload-Bereich um 67x67px Icons hinzuzufügen</li>
 <li><strong>Farben setzen:</strong> Nutze die Massenfarben-Funktionen für schnelles Styling</li>
@@ -144,520 +149,42 @@ canvas{display:none}
 </div>
 </div>
 </div>
-
 <canvas id='canvas'></canvas>
-
 <script>
-let cfg = {
-  menuCount: 1,
-  menus: [{
-    name: 'Main Menu',
-    parent: -1,
-    buttons: []
-  }]
-};
-
-for(let i = 0; i < 12; i++) {
-  cfg.menus[0].buttons.push({
-    active: false,
-    color: 0x2196,
-    text: '',
-    icon: '',
-    action: '',
-    target: -1,
-    imageData: null
-  });
-}
-
-let activeMenu = 0;
-let currentUploadButton = null;
-
-function showStatus(msg, type) {
-  type = type || 'success';
-  let s = document.getElementById('status');
-  s.textContent = msg;
-  s.className = 'status ' + type;
-  s.style.display = 'block';
-  setTimeout(() => s.style.display = 'none', 3000);
-}
-
-function switchMenu(idx) {
-  activeMenu = idx;
-  render();
-}
-
-function openHelp() {
-  document.getElementById('helpModal').classList.add('active');
-}
-
-function closeHelp() {
-  document.getElementById('helpModal').classList.remove('active');
-}
-
-function applyBulkColor() {
-  let colorType = document.getElementById('colorType_' + activeMenu).value;
-  let colorValue = document.getElementById('bulkColorPicker_' + activeMenu).value;
-  let rgb565 = hexToRgb565(colorValue);
-  let menu = cfg.menus[activeMenu];
-  
-  if(colorType === 'all') {
-    for(let i = 0; i < 12; i++) {
-      if(!menu.buttons[i].imageData) {
-        menu.buttons[i].color = rgb565;
-      }
-    }
-    showStatus('✓ Farbe auf alle Buttons angewendet!', 'success');
-  } else if(colorType.startsWith('row')) {
-    let row = parseInt(colorType.replace('row', '')) - 1;
-    for(let i = 0; i < 3; i++) {
-      let idx = row * 3 + i;
-      if(!menu.buttons[idx].imageData) {
-        menu.buttons[idx].color = rgb565;
-      }
-    }
-    showStatus('✓ Farbe auf Reihe angewendet!', 'success');
-  } else if(colorType.startsWith('col')) {
-    let col = parseInt(colorType.replace('col', '')) - 1;
-    for(let i = 0; i < 4; i++) {
-      let idx = i * 3 + col;
-      if(!menu.buttons[idx].imageData) {
-        menu.buttons[idx].color = rgb565;
-      }
-    }
-    showStatus('✓ Farbe auf Spalte angewendet!', 'success');
-  } else {
-    let btnIdx = parseInt(colorType.replace('btn', '')) - 1;
-    if(!menu.buttons[btnIdx].imageData) {
-      menu.buttons[btnIdx].color = rgb565;
-      showStatus('✓ Farbe auf Button angewendet!', 'success');
-    } else {
-      showStatus('✗ Button hat bereits ein Bild!', 'error');
-    }
-  }
-  
-  render();
-}
-
-function render() {
-  let tabs = '';
-  for(let m = 0; m < cfg.menuCount; m++) {
-    tabs += "<div class='menu-tab " + (m === activeMenu ? "active" : "") + "' onclick='switchMenu(" + m + ")'>" + cfg.menus[m].name + "</div>";
-  }
-  document.getElementById('tabs').innerHTML = tabs;
-  
-  let h = '';
-  for(let m = 0; m < cfg.menuCount; m++) {
-    let menu = cfg.menus[m];
-    h += "<div class='menu " + (m === activeMenu ? "active" : "") + "'><div class='menu-header'><input type='text' value='" + menu.name + "' onchange='cfg.menus[" + m + "].name=this.value;render()' placeholder='Menu Name'>";
-    h += "<div class='menu-info'><label class='select-label'>Parent Menu:</label><select onchange='cfg.menus[" + m + "].parent=parseInt(this.value)'><option value='-1'>Main Menu</option>";
-    
-    for(let i = 0; i < cfg.menuCount; i++) {
-      if(i !== m) {
-        h += "<option value='" + i + "' " + (menu.parent === i ? "selected" : "") + ">" + cfg.menus[i].name + "</option>";
-      }
-    }
-    
-    h += "</select><button class='btn-danger' onclick='delMenu(" + m + ")'>🗑️ Delete Menu</button></div></div>";
-    
-    h += "<div class='color-controls'><h3>🎨 Massenfarben-Funktion</h3><div class='color-options'>";
-    h += "<div class='color-select-group'><label class='select-label'>Bereich:</label>";
-    h += "<select id='colorType_" + m + "'>";
-    h += "<option value='all'>Alle Buttons</option>";
-    for(let r = 1; r <= 4; r++) {
-      h += "<option value='row" + r + "'>Reihe " + r + "</option>";
-    }
-    for(let c = 1; c <= 3; c++) {
-      h += "<option value='col" + c + "'>Spalte " + c + "</option>";
-    }
-    for(let b = 1; b <= 12; b++) {
-      h += "<option value='btn" + b + "'>Button " + b + "</option>";
-    }
-    h += "</select></div>";
-    h += "<label class='select-label'>Farbe:</label>";
-    h += "<div class='color-row'><div class='color-preview' id='bulkColorPreview_" + m + "' style='background:#2196f3' onclick='document.getElementById(\"bulkColorPicker_" + m + "\").click()'></div>";
-    h += "<input type='color' id='bulkColorPicker_" + m + "' style='display:none' value='#2196f3' onchange='document.getElementById(\"bulkColorPreview_" + m + "\").style.background=this.value'>";
-    h += "<button class='btn-color' onclick='applyBulkColor()'>Farbe anwenden</button></div>";
-    h += "</div></div>";
-    
-    h += "<div class='btn-grid'>";
-    
-    for(let i = 0; i < 12; i++) {
-      let b = menu.buttons[i];
-      let hasImage = b.imageData ? " has-image" : "";
-      h += "<div class='btn-config" + hasImage + "'>";
-      if(b.imageData) {
-        h += "<span class='image-indicator'>📷 Bild</span>";
-      }
-      h += "<h3>Button " + (i + 1) + "</h3>";
-      h += "<div class='checkbox-label'><input type='checkbox' " + (b.active ? "checked" : "") + " onchange='cfg.menus[" + m + "].buttons[" + i + "].active=this.checked'><span>Active</span></div>";
-      
-      if(!b.imageData) {
-        h += "<label>Button Text</label><input type='text' value='" + b.text + "' onchange='cfg.menus[" + m + "].buttons[" + i + "].text=this.value'>";
-      }
-      
-      h += "<label>Action Type</label><select onchange='updateAction(" + m + "," + i + ",this.value)'>";
-      h += "<option value='hotkey' " + (b.target < 0 ? "selected" : "") + ">Hotkey</option>";
-      h += "<option value='menu' " + (b.target >= 0 ? "selected" : "") + ">Menu Link</option></select>";
-      h += "<div id='act_" + m + "_" + i + "'>";
-      
-      if(b.target < 0) {
-        h += "<label>Hotkey Combination</label><input type='text' value='" + b.action + "' onchange='cfg.menus[" + m + "].buttons[" + i + "].action=this.value' placeholder='CTRL+C'>";
-      } else {
-        h += "<label>Target Menu</label><select onchange='cfg.menus[" + m + "].buttons[" + i + "].target=parseInt(this.value)'><option value='-1'>None</option>";
-        for(let mn = 0; mn < cfg.menuCount; mn++) {
-          h += "<option value='" + mn + "' " + (b.target === mn ? "selected" : "") + ">" + cfg.menus[mn].name + "</option>";
-        }
-        h += "</select>";
-      }
-      
-      h += "</div>";
-      
-      if(!b.imageData) {
-        h += "<label>Button Color</label><div class='color-row'><div class='color-preview' style='background:#" + rgb565ToHex(b.color) + "' onclick='document.getElementById(\"col_" + m + "_" + i + "\").click()'></div>";
-        h += "<input type='color' id='col_" + m + "_" + i + "' style='display:none' value='#" + rgb565ToHex(b.color) + "' onchange='cfg.menus[" + m + "].buttons[" + i + "].color=hexToRgb565(this.value);render()'>";
-        h += "</div>";
-      }
-      
-      h += "<label>Button Icon (67x67px)</label>";
-      h += "<div class='image-upload-area " + (b.imageData ? "has-image" : "") + "' onclick='openImageUpload(" + m + "," + i + ")'>";
-      
-      if(b.imageData) {
-        h += "<div class='image-preview-container'>";
-        h += "<img src='" + b.imageData + "' class='image-preview' alt='Preview'>";
-        h += "<div><span class='upload-info'>✓ Image ready</span><br>";
-        h += "<button class='remove-image' onclick='event.stopPropagation();removeImage(" + m + "," + i + ")'>Remove</button></div>";
-        h += "</div>";
-      } else {
-        h += "<span class='upload-label'>📷 Click to upload image</span>";
-        h += "<span class='upload-info'>Accepts: JPG, PNG, GIF, WebP</span>";
-      }
-      
-      h += "</div></div>";
-    }
-    h += "</div></div>";
-  }
-  document.getElementById('menus').innerHTML = h;
-}
-
-function hexToRgb565(hex) {
-  let r = parseInt(hex.slice(1, 3), 16) >> 3;
-  let g = parseInt(hex.slice(3, 5), 16) >> 2;
-  let b = parseInt(hex.slice(5, 7), 16) >> 3;
-  return (r << 11) | (g << 5) | b;
-}
-
-function rgb565ToHex(rgb565) {
-  let r = ((rgb565 >> 11) & 0x1F) << 3;
-  let g = ((rgb565 >> 5) & 0x3F) << 2;
-  let b = (rgb565 & 0x1F) << 3;
-  r = r | (r >> 5);
-  g = g | (g >> 6);
-  b = b | (b >> 5);
-  return r.toString(16).padStart(2, '0') + g.toString(16).padStart(2, '0') + b.toString(16).padStart(2, '0');
-}
-
-function updateAction(m, i, type) {
-  let b = cfg.menus[m].buttons[i];
-  if(type === 'hotkey') {
-    b.action = '';
-    b.target = -1;
-  } else {
-    b.action = '';
-    b.target = 0;
-  }
-  render();
-}
-
-function openImageUpload(m, i) {
-  currentUploadButton = {menu: m, button: i};
-  document.getElementById('imageInput').click();
-}
-
-function handleImageUpload(event) {
-  let file = event.target.files[0];
-  if(!file || !currentUploadButton) return;
-  
-  let reader = new FileReader();
-  reader.onload = function(e) {
-    let img = new Image();
-    img.onload = function() {
-      let canvas = document.getElementById('canvas');
-      let ctx = canvas.getContext('2d');
-      
-      canvas.width = 67;
-      canvas.height = 67;
-      
-      ctx.drawImage(img, 0, 0, 67, 67);
-      
-      let dataUrl = canvas.toDataURL('image/png');
-      
-      cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].imageData = dataUrl;
-      cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].icon = '/i_' + currentUploadButton.menu + '_' + currentUploadButton.button + '.raw';
-      cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].color = 0x0000;
-      cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].text = '';
-      
-      render();
-      showStatus('✓ Image uploaded and resized!', 'success');
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-  
-  event.target.value = '';
-}
-
-function removeImage(m, i) {
-  cfg.menus[m].buttons[i].imageData = null;
-  cfg.menus[m].buttons[i].icon = '';
-  cfg.menus[m].buttons[i].text = '';
-  render();
-  showStatus('✓ Image removed!', 'success');
-}
-
-function imageDataToRgb565(dataUrl) {
-  return new Promise((resolve) => {
-    let img = new Image();
-    img.onload = function() {
-      let canvas = document.getElementById('canvas');
-      let ctx = canvas.getContext('2d');
-      
-      canvas.width = 67;
-      canvas.height = 67;
-      ctx.drawImage(img, 0, 0, 67, 67);
-      
-      let imageData = ctx.getImageData(0, 0, 67, 67);
-      let pixels = imageData.data;
-      let rgb565Data = new Uint8Array(67 * 67 * 2);
-      
-      for(let i = 0; i < 67 * 67; i++) {
-        let r = pixels[i * 4] >> 3;
-        let g = pixels[i * 4 + 1] >> 2;
-        let b = pixels[i * 4 + 2] >> 3;
-        
-        let rgb565 = (r << 11) | (g << 5) | b;
-        
-        rgb565Data[i * 2] = (rgb565 >> 8) & 0xFF;
-        rgb565Data[i * 2 + 1] = rgb565 & 0xFF;
-      }
-      
-      resolve(rgb565Data);
-    };
-    img.src = dataUrl;
-  });
-}
-
-async function downloadPackage() {
-  showStatus('⏳ Creating package...', 'success');
-  
-  let zip = new JSZip();
-  
-  let cleanCfg = JSON.parse(JSON.stringify(cfg));
-  for(let m = 0; m < cleanCfg.menuCount; m++) {
-    for(let i = 0; i < 12; i++) {
-      delete cleanCfg.menus[m].buttons[i].imageData;
-    }
-  }
-  
-  zip.file('config.json', JSON.stringify(cleanCfg, null, 2));
-  
-  for(let m = 0; m < cfg.menuCount; m++) {
-    for(let i = 0; i < 12; i++) {
-      let btn = cfg.menus[m].buttons[i];
-      if(btn.imageData) {
-        let rgb565Data = await imageDataToRgb565(btn.imageData);
-        zip.file('i_' + m + '_' + i + '.raw', rgb565Data);
-      }
-    }
-  }
-  
-  zip.generateAsync({type: 'blob'}).then(function(blob) {
-    let url = URL.createObjectURL(blob);
-    let a = document.createElement('a');
-    a.href = url;
-    a.download = 'cyd_deck_config.zip';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showStatus('✓ Package downloaded!', 'success');
-  });
-}
-
-function addMenu() {
-  let newMenu = {
-    name: 'Menu ' + (cfg.menuCount + 1),
-    parent: -1,
-    buttons: []
-  };
-  
-  for(let i = 0; i < 12; i++) {
-    newMenu.buttons.push({
-      active: false,
-      color: 0x2196,
-      text: '',
-      icon: '',
-      action: '',
-      target: -1,
-      imageData: null
-    });
-  }
-  
-  cfg.menus.push(newMenu);
-  cfg.menuCount++;
-  activeMenu = cfg.menuCount - 1;
-  render();
-  showStatus('✓ Menu added!', 'success');
-}
-
-function delMenu(m) {
-  if(!confirm('Delete this menu?')) return;
-  
-  cfg.menus.splice(m, 1);
-  cfg.menuCount--;
-  
-  for(let i = 0; i < cfg.menuCount; i++) {
-    if(cfg.menus[i].parent > m) cfg.menus[i].parent--;
-    else if(cfg.menus[i].parent === m) cfg.menus[i].parent = -1;
-    
-    for(let j = 0; j < 12; j++) {
-      if(cfg.menus[i].buttons[j].target > m) cfg.menus[i].buttons[j].target--;
-      else if(cfg.menus[i].buttons[j].target === m) cfg.menus[i].buttons[j].target = -1;
-    }
-  }
-  
-  if(activeMenu >= cfg.menuCount) activeMenu = cfg.menuCount - 1;
-  if(activeMenu < 0) activeMenu = 0;
-  
-  render();
-  showStatus('✓ Menu deleted!', 'success');
-}
-
-function loadConfig() {
-  document.getElementById('fileInput').click();
-}
-
-async function handleFileLoad(event) {
-  let file = event.target.files[0];
-  if(!file) return;
-  
-  if(file.name.endsWith('.zip')) {
-    handleZipLoad(event);
-    return;
-  }
-  
-  let reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      let loaded = JSON.parse(e.target.result);
-      if(loaded.menus && loaded.menuCount) {
-        for(let m = 0; m < loaded.menuCount; m++) {
-          for(let i = 0; i < 12; i++) {
-            if(!loaded.menus[m].buttons[i].imageData) {
-              loaded.menus[m].buttons[i].imageData = null;
-            }
-          }
-        }
-        cfg = loaded;
-        activeMenu = 0;
-        render();
-        showStatus('✓ Config loaded!', 'success');
-      } else {
-        showStatus('✗ Invalid config file!', 'error');
-      }
-    } catch(err) {
-      showStatus('✗ Failed to parse JSON!', 'error');
-    }
-  };
-  reader.readAsText(file);
-  
-  event.target.value = '';
-}
-
-async function handleZipLoad(event) {
-  let file = event.target.files[0];
-  if(!file) return;
-  
-  showStatus('⏳ Loading ZIP package...', 'success');
-  
-  try {
-    let zip = await JSZip.loadAsync(file);
-    
-    let configFile = zip.file('config.json');
-    if(!configFile) {
-      showStatus('✗ No config.json found in ZIP!', 'error');
-      return;
-    }
-    
-    let configText = await configFile.async('text');
-    let loaded = JSON.parse(configText);
-    
-    if(!loaded.menus || !loaded.menuCount) {
-      showStatus('✗ Invalid config file!', 'error');
-      return;
-    }
-    
-    for(let m = 0; m < loaded.menuCount; m++) {
-      for(let i = 0; i < 12; i++) {
-        let btn = loaded.menus[m].buttons[i];
-        btn.imageData = null;
-        
-        if(btn.icon && btn.icon.startsWith('/i_')) {
-          let filename = btn.icon.substring(1);
-          let imageFile = zip.file(filename);
-          
-          if(imageFile) {
-            let rawData = await imageFile.async('uint8array');
-            let dataUrl = await rgb565ToDataUrl(rawData);
-            btn.imageData = dataUrl;
-          }
-        }
-      }
-    }
-    
-    cfg = loaded;
-    activeMenu = 0;
-    render();
-    showStatus('✓ ZIP package loaded with images!', 'success');
-  } catch(err) {
-    showStatus('✗ Failed to load ZIP: ' + err.message, 'error');
-  }
-  
-  event.target.value = '';
-}
-
-function rgb565ToDataUrl(rgb565Data) {
-  return new Promise((resolve) => {
-    let canvas = document.getElementById('canvas');
-    let ctx = canvas.getContext('2d');
-    
-    canvas.width = 67;
-    canvas.height = 67;
-    
-    let imageData = ctx.createImageData(67, 67);
-    let pixels = imageData.data;
-    
-    for(let i = 0; i < 67 * 67; i++) {
-      let rgb565 = (rgb565Data[i * 2] << 8) | rgb565Data[i * 2 + 1];
-      
-      let r = ((rgb565 >> 11) & 0x1F) << 3;
-      let g = ((rgb565 >> 5) & 0x3F) << 2;
-      let b = (rgb565 & 0x1F) << 3;
-      
-      r = r | (r >> 5);
-      g = g | (g >> 6);
-      b = b | (b >> 5);
-      
-      pixels[i * 4] = r;
-      pixels[i * 4 + 1] = g;
-      pixels[i * 4 + 2] = b;
-      pixels[i * 4 + 3] = 255;
-    }
-    
-    ctx.putImageData(imageData, 0, 0);
-    resolve(canvas.toDataURL('image/png'));
-  });
-}
-
+let cfg={menuCount:1,menus:[{name:'Main Menu',parent:-1,buttons:[]}]};
+for(let i=0;i<12;i++){cfg.menus[0].buttons.push({active:false,color:0x2196,text:'',icon:'',action:'',target:-1,imageData:null});}
+let activeMenu=0;
+let currentUploadButton=null;
+let draggedMenu=null;
+function showStatus(msg,type){type=type||'success';let s=document.getElementById('status');s.textContent=msg;s.className='status '+type;s.style.display='block';setTimeout(()=>s.style.display='none',3000);}
+function switchMenu(idx){activeMenu=idx;render();}
+function openHelp(){document.getElementById('helpModal').classList.add('active');}
+function closeHelp(){document.getElementById('helpModal').classList.remove('active');}
+function applyBulkColor(){let colorType=document.getElementById('colorType_'+activeMenu).value;let colorValue=document.getElementById('bulkColorPicker_'+activeMenu).value;let rgb565=hexToRgb565(colorValue);let menu=cfg.menus[activeMenu];if(colorType==='all'){for(let i=0;i<12;i++){if(!menu.buttons[i].imageData){menu.buttons[i].color=rgb565;}}showStatus('✓ Farbe auf alle Buttons angewendet!','success');}else if(colorType.startsWith('row')){let row=parseInt(colorType.replace('row',''))-1;for(let i=0;i<3;i++){let idx=row*3+i;if(!menu.buttons[idx].imageData){menu.buttons[idx].color=rgb565;}}showStatus('✓ Farbe auf Reihe angewendet!','success');}else if(colorType.startsWith('col')){let col=parseInt(colorType.replace('col',''))-1;for(let i=0;i<4;i++){let idx=i*3+col;if(!menu.buttons[idx].imageData){menu.buttons[idx].color=rgb565;}}showStatus('✓ Farbe auf Spalte angewendet!','success');}else{let btnIdx=parseInt(colorType.replace('btn',''))-1;if(!menu.buttons[btnIdx].imageData){menu.buttons[btnIdx].color=rgb565;showStatus('✓ Farbe auf Button angewendet!','success');}else{showStatus('✗ Button hat bereits ein Bild!','error');}}render();}
+function copyMenu(m){let source=cfg.menus[m];let newMenu={name:source.name+' (Copy)',parent:source.parent,buttons:[]};for(let i=0;i<12;i++){let btn=source.buttons[i];newMenu.buttons.push({active:btn.active,color:btn.color,text:btn.text,icon:btn.icon,action:btn.action,target:btn.target,imageData:btn.imageData});}cfg.menus.splice(m+1,0,newMenu);cfg.menuCount++;updateIndices();activeMenu=m+1;render();showStatus('✓ Menü kopiert!','success');}
+function moveMenu(fromIdx,toIdx){if(fromIdx===toIdx||toIdx<0||toIdx>=cfg.menuCount)return;let menu=cfg.menus.splice(fromIdx,1)[0];cfg.menus.splice(toIdx,0,menu);updateIndices();activeMenu=toIdx;render();}
+function updateIndices(){for(let i=0;i<cfg.menuCount;i++){let menu=cfg.menus[i];if(menu.parent>=cfg.menuCount)menu.parent=-1;for(let j=0;j<12;j++){let btn=menu.buttons[j];if(btn.target>=cfg.menuCount)btn.target=-1;}}}
+function handleDragStart(e,idx){draggedMenu=idx;e.target.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/html',e.target.innerHTML);}
+function handleDragEnd(e){e.target.classList.remove('dragging');document.querySelectorAll('.menu-tab').forEach(t=>t.classList.remove('drag-over'));draggedMenu=null;}
+function handleDragOver(e){if(e.preventDefault){e.preventDefault();}e.dataTransfer.dropEffect='move';return false;}
+function handleDragEnter(e){e.target.closest('.menu-tab').classList.add('drag-over');}
+function handleDragLeave(e){e.target.closest('.menu-tab').classList.remove('drag-over');}
+function handleDrop(e,idx){if(e.stopPropagation){e.stopPropagation();}if(draggedMenu!==null&&draggedMenu!==idx){moveMenu(draggedMenu,idx);}return false;}
+function render(){let tabs='';for(let m=0;m<cfg.menuCount;m++){tabs+="<div class='menu-tab "+(m===activeMenu?"active":"")+"' draggable='true' ondragstart='handleDragStart(event,"+m+")' ondragend='handleDragEnd(event)' ondragover='handleDragOver(event)' ondragenter='handleDragEnter(event)' ondragleave='handleDragLeave(event)' ondrop='handleDrop(event,"+m+")'>";tabs+="<span onclick='switchMenu("+m+")' style='cursor:pointer'>"+cfg.menus[m].name+"</span>";tabs+="<div class='menu-tab-actions'>";tabs+="<button class='tab-btn copy' onclick='event.stopPropagation();copyMenu("+m+")' title='Menü kopieren'>📋</button>";tabs+="</div></div>";}document.getElementById('tabs').innerHTML=tabs;let h='';for(let m=0;m<cfg.menuCount;m++){let menu=cfg.menus[m];h+="<div class='menu "+(m===activeMenu?"active":"")+"'><div class='menu-header'><input type='text' value='"+menu.name+"' onchange='cfg.menus["+m+"].name=this.value;render()' placeholder='Menu Name'>";h+="<div class='menu-info'><label class='select-label'>Parent Menu:</label><select onchange='cfg.menus["+m+"].parent=parseInt(this.value)'><option value='-1'>Main Menu</option>";for(let i=0;i<cfg.menuCount;i++){if(i!==m){h+="<option value='"+i+"' "+(menu.parent===i?"selected":"")+">"+cfg.menus[i].name+"</option>";}}h+="</select><button class='btn-danger' onclick='delMenu("+m+")'>🗑️ Delete Menu</button></div></div>";h+="<div class='color-controls'><h3>🎨 Massenfarben-Funktion</h3><div class='color-options'>";h+="<div class='color-select-group'><label class='select-label'>Bereich:</label>";h+="<select id='colorType_"+m+"'>";h+="<option value='all'>Alle Buttons</option>";for(let r=1;r<=4;r++){h+="<option value='row"+r+"'>Reihe "+r+"</option>";}for(let c=1;c<=3;c++){h+="<option value='col"+c+"'>Spalte "+c+"</option>";}for(let b=1;b<=12;b++){h+="<option value='btn"+b+"'>Button "+b+"</option>";}h+="</select></div>";h+="<label class='select-label'>Farbe:</label>";h+="<div class='color-row'><div class='color-preview' id='bulkColorPreview_"+m+"' style='background:#2196f3' onclick='document.getElementById(\"bulkColorPicker_"+m+"\").click()'></div>";h+="<input type='color' id='bulkColorPicker_"+m+"' style='display:none' value='#2196f3' onchange='document.getElementById(\"bulkColorPreview_"+m+"\").style.background=this.value'>";h+="<button class='btn-color' onclick='applyBulkColor()'>Farbe anwenden</button></div>";h+="</div></div>";h+="<div class='btn-grid'>";for(let i=0;i<12;i++){let b=menu.buttons[i];let hasImage=b.imageData?" has-image":"";h+="<div class='btn-config"+hasImage+"'>";if(b.imageData){h+="<span class='image-indicator'>📷 Bild</span>";}h+="<h3>Button "+(i+1)+"</h3>";h+="<div class='checkbox-label'><input type='checkbox' "+(b.active?"checked":"")+" onchange='cfg.menus["+m+"].buttons["+i+"].active=this.checked'><span>Active</span></div>";if(!b.imageData){h+="<label>Button Text</label><input type='text' value='"+b.text+"' onchange='cfg.menus["+m+"].buttons["+i+"].text=this.value'>";}h+="<label>Action Type</label><select onchange='updateAction("+m+","+i+",this.value)'>";h+="<option value='hotkey' "+(b.target<0?"selected":"")+">Hotkey</option>";h+="<option value='menu' "+(b.target>=0?"selected":"")+">Menu Link</option></select>";h+="<div id='act_"+m+"_"+i+"'>";if(b.target<0){h+="<label>Hotkey Combination</label><input type='text' value='"+b.action+"' onchange='cfg.menus["+m+"].buttons["+i+"].action=this.value' placeholder='CTRL+C'>";}else{h+="<label>Target Menu</label><select onchange='cfg.menus["+m+"].buttons["+i+"].target=parseInt(this.value)'><option value='-1'>None</option>";for(let mn=0;mn<cfg.menuCount;mn++){h+="<option value='"+mn+"' "+(b.target===mn?"selected":"")+">"+cfg.menus[mn].name+"</option>";}h+="</select>";}h+="</div>";if(!b.imageData){h+="<label>Button Color</label><div class='color-row'><div class='color-preview' style='background:#"+rgb565ToHex(b.color)+"' onclick='document.getElementById(\"col_"+m+"_"+i+"\").click()'></div>";h+="<input type='color' id='col_"+m+"_"+i+"' style='display:none' value='#"+rgb565ToHex(b.color)+"' onchange='cfg.menus["+m+"].buttons["+i+"].color=hexToRgb565(this.value);render()'>";h+="</div>";}h+="<label>Button Icon (67x67px)</label>";h+="<div class='image-upload-area "+(b.imageData?"has-image":"")+"' onclick='openImageUpload("+m+","+i+")'>";if(b.imageData){h+="<div class='image-preview-container'>";h+="<img src='"+b.imageData+"' class='image-preview' alt='Preview'>";h+="<div><span class='upload-info'>✓ Image ready</span><br>";h+="<button class='remove-image' onclick='event.stopPropagation();removeImage("+m+","+i+")'>Remove</button></div>";h+="</div>";}else{h+="<span class='upload-label'>📷 Click to upload image</span>";h+="<span class='upload-info'>Accepts: JPG, PNG, GIF, WebP</span>";}h+="</div></div>";}h+="</div></div>";}document.getElementById('menus').innerHTML=h;}
+function hexToRgb565(hex){let r=parseInt(hex.slice(1,3),16)>>3;let g=parseInt(hex.slice(3,5),16)>>2;let b=parseInt(hex.slice(5,7),16)>>3;return(r<<11)|(g<<5)|b;}
+function rgb565ToHex(rgb565){let r=((rgb565>>11)&0x1F)<<3;let g=((rgb565>>5)&0x3F)<<2;let b=(rgb565&0x1F)<<3;r=r|(r>>5);g=g|(g>>6);b=b|(b>>5);return r.toString(16).padStart(2,'0')+g.toString(16).padStart(2,'0')+b.toString(16).padStart(2,'0');}
+function updateAction(m,i,type){let b=cfg.menus[m].buttons[i];if(type==='hotkey'){b.action='';b.target=-1;}else{b.action='';b.target=0;}render();}
+function openImageUpload(m,i){currentUploadButton={menu:m,button:i};document.getElementById('imageInput').click();}
+function handleImageUpload(event){let file=event.target.files[0];if(!file||!currentUploadButton)return;let reader=new FileReader();reader.onload=function(e){let img=new Image();img.onload=function(){let canvas=document.getElementById('canvas');let ctx=canvas.getContext('2d');canvas.width=67;canvas.height=67;ctx.drawImage(img,0,0,67,67);let dataUrl=canvas.toDataURL('image/png');cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].imageData=dataUrl;cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].icon='/i_'+currentUploadButton.menu+'_'+currentUploadButton.button+'.raw';cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].color=0x0000;cfg.menus[currentUploadButton.menu].buttons[currentUploadButton.button].text='';render();showStatus('✓ Image uploaded and resized!','success');};img.src=e.target.result;};reader.readAsDataURL(file);event.target.value='';}
+function removeImage(m,i){cfg.menus[m].buttons[i].imageData=null;cfg.menus[m].buttons[i].icon='';cfg.menus[m].buttons[i].text='';render();showStatus('✓ Image removed!','success');}
+function imageDataToRgb565(dataUrl){return new Promise((resolve)=>{let img=new Image();img.onload=function(){let canvas=document.getElementById('canvas');let ctx=canvas.getContext('2d');canvas.width=67;canvas.height=67;ctx.drawImage(img,0,0,67,67);let imageData=ctx.getImageData(0,0,67,67);let pixels=imageData.data;let rgb565Data=new Uint8Array(67*67*2);for(let i=0;i<67*67;i++){let r=pixels[i*4]>>3;let g=pixels[i*4+1]>>2;let b=pixels[i*4+2]>>3;let rgb565=(r<<11)|(g<<5)|b;rgb565Data[i*2]=(rgb565>>8)&0xFF;rgb565Data[i*2+1]=rgb565&0xFF;}resolve(rgb565Data);};img.src=dataUrl;});}
+async function downloadPackage(){showStatus('⏳ Creating package...','success');let zip=new JSZip();let cleanCfg=JSON.parse(JSON.stringify(cfg));for(let m=0;m<cleanCfg.menuCount;m++){for(let i=0;i<12;i++){delete cleanCfg.menus[m].buttons[i].imageData;}}zip.file('config.json',JSON.stringify(cleanCfg,null,2));for(let m=0;m<cfg.menuCount;m++){for(let i=0;i<12;i++){let btn=cfg.menus[m].buttons[i];if(btn.imageData){let rgb565Data=await imageDataToRgb565(btn.imageData);zip.file('i_'+m+'_'+i+'.raw',rgb565Data);}}}zip.generateAsync({type:'blob'}).then(function(blob){let url=URL.createObjectURL(blob);let a=document.createElement('a');a.href=url;a.download='cyd_deck_config.zip';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);showStatus('✓ Package downloaded!','success');});}
+function addMenu(){let newMenu={name:'Menu '+(cfg.menuCount+1),parent:-1,buttons:[]};for(let i=0;i<12;i++){newMenu.buttons.push({active:false,color:0x2196,text:'',icon:'',action:'',target:-1,imageData:null});}cfg.menus.push(newMenu);cfg.menuCount++;activeMenu=cfg.menuCount-1;render();showStatus('✓ Menu added!','success');}
+function delMenu(m){if(!confirm('Delete this menu?'))return;cfg.menus.splice(m,1);cfg.menuCount--;for(let i=0;i<cfg.menuCount;i++){if(cfg.menus[i].parent>m)cfg.menus[i].parent--;else if(cfg.menus[i].parent===m)cfg.menus[i].parent=-1;for(let j=0;j<12;j++){if(cfg.menus[i].buttons[j].target>m)cfg.menus[i].buttons[j].target--;else if(cfg.menus[i].buttons[j].target===m)cfg.menus[i].buttons[j].target=-1;}}if(activeMenu>=cfg.menuCount)activeMenu=cfg.menuCount-1;if(activeMenu<0)activeMenu=0;render();showStatus('✓ Menu deleted!','success');}
+function loadConfig(){document.getElementById('fileInput').click();}
+async function handleFileLoad(event){let file=event.target.files[0];if(!file)return;if(file.name.endsWith('.zip')){handleZipLoad(event);return;}let reader=new FileReader();reader.onload=function(e){try{let loaded=JSON.parse(e.target.result);if(loaded.menus&&loaded.menuCount){for(let m=0;m<loaded.menuCount;m++){for(let i=0;i<12;i++){if(!loaded.menus[m].buttons[i].imageData){loaded.menus[m].buttons[i].imageData=null;}}}cfg=loaded;activeMenu=0;render();showStatus('✓ Config loaded!','success');}else{showStatus('✗ Invalid config file!','error');}}catch(err){showStatus('✗ Failed to parse JSON!','error');}};reader.readAsText(file);event.target.value='';}
+async function handleZipLoad(event){let file=event.target.files[0];if(!file)return;showStatus('⏳ Loading ZIP package...','success');try{let zip=await JSZip.loadAsync(file);let configFile=zip.file('config.json');if(!configFile){showStatus('✗ No config.json found in ZIP!','error');return;}let configText=await configFile.async('text');let loaded=JSON.parse(configText);if(!loaded.menus||!loaded.menuCount){showStatus('✗ Invalid config file!','error');return;}for(let m=0;m<loaded.menuCount;m++){for(let i=0;i<12;i++){let btn=loaded.menus[m].buttons[i];btn.imageData=null;if(btn.icon&&btn.icon.startsWith('/i_')){let filename=btn.icon.substring(1);let imageFile=zip.file(filename);if(imageFile){let rawData=await imageFile.async('uint8array');let dataUrl=await rgb565ToDataUrl(rawData);btn.imageData=dataUrl;}}}}cfg=loaded;activeMenu=0;render();showStatus('✓ ZIP package loaded with images!','success');}catch(err){showStatus('✗ Failed to load ZIP: '+err.message,'error');}event.target.value='';}
+function rgb565ToDataUrl(rgb565Data){return new Promise((resolve)=>{let canvas=document.getElementById('canvas');let ctx=canvas.getContext('2d');canvas.width=67;canvas.height=67;let imageData=ctx.createImageData(67,67);let pixels=imageData.data;for(let i=0;i<67*67;i++){let rgb565=(rgb565Data[i*2]<<8)|rgb565Data[i*2+1];let r=((rgb565>>11)&0x1F)<<3;let g=((rgb565>>5)&0x3F)<<2;let b=(rgb565&0x1F)<<3;r=r|(r>>5);g=g|(g>>6);b=b|(b>>5);pixels[i*4]=r;pixels[i*4+1]=g;pixels[i*4+2]=b;pixels[i*4+3]=255;}ctx.putImageData(imageData,0,0);resolve(canvas.toDataURL('image/png'));});}
 render();
 </script>
 </body>
