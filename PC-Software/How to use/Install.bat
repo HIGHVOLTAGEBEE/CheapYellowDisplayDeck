@@ -1,28 +1,28 @@
 @echo off
 echo ===========================================
-echo   Python Bibliotheken Installation
+echo   Python Libraries Installation
 echo ===========================================
 echo.
 
-REM Prüfen, ob Python installiert ist
+REM Check if Python is installed
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo [FEHLER] Python wurde nicht gefunden. Bitte installiere Python zuerst.
+    echo [ERROR] Python not found. Please install Python first.
     pause
     exit /b
 )
 
-echo [INFO] Installiere benötigte Bibliotheken...
+echo [INFO] Installing required libraries...
 echo.
 
-REM Optional: Upgrade von pip
+REM Optional: Upgrade pip
 python -m pip install --upgrade pip
 
-REM Installation der benötigten Bibliotheken
-pip install pyserial pyqt6 keyboard
+REM Install required libraries
+pip install pyserial pyqt6 keyboard gputil psutil
 
 echo.
 echo ===========================================
-echo   Installation abgeschlossen!
+echo   Installation completed!
 echo ===========================================
 pause

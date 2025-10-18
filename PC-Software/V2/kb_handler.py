@@ -149,10 +149,10 @@ class KeyExecutor:
     def _execute_text(self, command: KeyCommand) -> tuple[bool, str]:
         if command.modifiers or command.keys:
             kb.press_and_release('+'.join(command.modifiers + command.keys))
-            time.sleep(0.05)
+            time.sleep(0.001)
         if command.text_content:
-            kb.write(command.text_content, delay=0.0002)
-        preview = command.text_content[:30] + '...' if len(command.text_content) > 30 else command.text_content
+            kb.write(command.text_content, delay=0.001)
+        preview = command.text_content[:55] + '...' if len(command.text_content) > 55 else command.text_content
         return True, f"Typed: {preview}"
     
     def _execute_keystroke(self, command: KeyCommand) -> tuple[bool, str]:

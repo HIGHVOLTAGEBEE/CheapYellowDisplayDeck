@@ -1,3 +1,5 @@
 PyQt6
 pyserial
-keyboard
+Keyboard
+psutil
+gputil

@@ -1,19 +1,6 @@
-"""
-serial_comm.py - Serial communication thread
-
-API:
-    SerialThread(port, baudrate, layout_code)
-    Signals:
-        - message_received(str)
-        - command_executed(str, bool, str)
-        - error_occurred(str)
-        - ready_received()
-    Methods:
-        - start() / stop()
-"""
-
-import serial
-import time
+"""serial_comm.py - Serial thread with telemetry"""
+import serial, time, psutil, subprocess
+from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal
 from kb_handler import KeyboardLayoutManager, CommandParser, KeyExecutor, CommandType
 
@@ -22,17 +9,15 @@ class SerialThread(QThread):
     command_executed = pyqtSignal(str, bool, str)
     error_occurred = pyqtSignal(str)
     ready_received = pyqtSignal()
+    telemetry_sent = pyqtSignal(str)
     
     def __init__(self, port: str, baudrate: int, layout_code: str):
         super().__init__()
-        self.port = port
-        self.baudrate = baudrate
-        self.running = False
+        self.port, self.baudrate, self.running, self.is_ready = port, baudrate, False, False
         self.serial_connection = None
-        self.is_ready = False
         self.layout_manager = KeyboardLayoutManager(layout_code)
-        self.parser = CommandParser(self.layout_manager)
-        self.executor = KeyExecutor()
+        self.parser, self.executor = CommandParser(self.layout_manager), KeyExecutor()
+        self.last_telemetry = 0
     
     def run(self):
         try:
@@ -40,16 +25,17 @@ class SerialThread(QThread):
             self.running = True
             
             while self.running:
+                # Telemetrie alle 100ms senden
+                if time.time() - self.last_telemetry >= 0.5 and self.is_ready:
+                    self._send_telemetry()
+                    self.last_telemetry = time.time()
+                
                 if self.serial_connection.in_waiting > 0:
                     try:
-                        raw_message = self.serial_connection.readline()
-                        message = raw_message.decode('utf-8', errors='ignore').strip()
-                        
-                        if not message:
-                            continue
+                        message = self.serial_connection.readline().decode('utf-8', errors='ignore').strip()
+                        if not message: continue
                         
                         self.message_received.emit(message)
-                        
                         if message in CommandParser.READY_SIGNALS and not self.is_ready:
                             self.is_ready = True
                             self.ready_received.emit()
@@ -57,7 +43,6 @@ class SerialThread(QThread):
                             self._process_command(message)
                     except UnicodeDecodeError as e:
                         self.error_occurred.emit(f"Decode error: {str(e)}")
-                
                 time.sleep(0.01)
         except serial.SerialException as e:
             self.error_occurred.emit(f"Serial error: {str(e)}")
@@ -65,13 +50,37 @@ class SerialThread(QThread):
             if self.serial_connection and self.serial_connection.is_open:
                 self.serial_connection.close()
     
+    def _send_telemetry(self):
+        if not (self.serial_connection and self.serial_connection.is_open): return
+        try:
+            now = datetime.now()
+            cpu = psutil.cpu_percent(interval=None)
+            ram = psutil.virtual_memory().percent
+            gpu = self._get_gpu()
+            packet = f"<T|{now:%H:%M:%S}|{now:%d.%m.%Y}|{cpu:.1f}|{gpu:.1f}|{ram:.1f}>"
+            self.serial_connection.write((packet + "\n").encode('utf-8'))
+            self.telemetry_sent.emit(packet)
+        except: pass
+    
+    def _get_gpu(self):
+        try:
+            import GPUtil
+            gpus = GPUtil.getGPUs()
+            if gpus: return gpus[0].load * 100
+        except: pass
+        try:
+            r = subprocess.run(['nvidia-smi', '--query-gpu=utilization.gpu', '--format=csv,noheader,nounits'],
+                             capture_output=True, text=True, timeout=0.5)
+            if r.returncode == 0: return float(r.stdout.strip().split('\n')[0])
+        except: pass
+        return 0.0
+    
     def _process_command(self, message: str):
         try:
             command = self.parser.parse(message)
-            if command.command_type == CommandType.READY_SIGNAL:
-                return
-            success, result_message = self.executor.execute(command)
-            self.command_executed.emit(command.raw_input, success, result_message)
+            if command.command_type == CommandType.READY_SIGNAL: return
+            success, result = self.executor.execute(command)
+            self.command_executed.emit(command.raw_input, success, result)
         except Exception as e:
             self.error_occurred.emit(f"Command error: {str(e)}")
     
