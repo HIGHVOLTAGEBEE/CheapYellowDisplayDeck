@@ -3,6 +3,44 @@ from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal
 from kb_handler import KeyboardLayoutManager, CommandParser, KeyExecutor, CommandType
 
+class TelemetryBuffer:
+    """Exponential Moving Average filter with rate limiting for smooth telemetry values"""
+    def __init__(self, alpha=0.03, max_change_per_sec=5.0):
+        self.alpha = alpha  # Smoothing factor (0.0-1.0, higher = more responsive)
+        self.max_change_per_sec = max_change_per_sec  # Max % change per second
+        self.cpu = None
+        self.gpu = None
+        self.ram = None
+        self.last_update = time.time()
+    
+    def _limit_change(self, new_val, old_val, dt):
+        """Limit the rate of change based on time delta"""
+        max_change = self.max_change_per_sec * dt
+        diff = new_val - old_val
+        if abs(diff) > max_change:
+            return old_val + (max_change if diff > 0 else -max_change)
+        return new_val
+    
+    def update(self, cpu, gpu, ram):
+        now = time.time()
+        dt = now - self.last_update
+        self.last_update = now
+        
+        if self.cpu is None:
+            self.cpu, self.gpu, self.ram = cpu, gpu, ram
+        else:
+            # Apply EMA smoothing
+            smooth_cpu = self.alpha * cpu + (1 - self.alpha) * self.cpu
+            smooth_gpu = self.alpha * gpu + (1 - self.alpha) * self.gpu
+            smooth_ram = self.alpha * ram + (1 - self.alpha) * self.ram
+            
+            # Apply rate limiting
+            self.cpu = self._limit_change(smooth_cpu, self.cpu, dt)
+            self.gpu = self._limit_change(smooth_gpu, self.gpu, dt)
+            self.ram = self._limit_change(smooth_ram, self.ram, dt)
+        
+        return self.cpu, self.gpu, self.ram
+
 class SerialThread(QThread):
     message_received = pyqtSignal(str)
     command_executed = pyqtSignal(str, bool, str)
@@ -19,6 +57,7 @@ class SerialThread(QThread):
         self.parser = CommandParser(self.layout_manager)
         self.executor = KeyExecutor()
         self.last_telemetry = 0
+        self.telemetry_buffer = TelemetryBuffer(alpha=0.3, max_change_per_sec=10.0)
     
     def run(self):
         try:
@@ -26,7 +65,7 @@ class SerialThread(QThread):
             self.running = True
             
             while self.running:
-                if time.time() - self.last_telemetry >= 1 and self.is_ready:
+                if time.time() - self.last_telemetry >= 0.01 and self.is_ready:
                     self._send_telemetry()
                     self.last_telemetry = time.time()
                 
@@ -60,9 +99,12 @@ class SerialThread(QThread):
         
         try:
             now = datetime.now()
-            cpu = psutil.cpu_percent(interval=None)
-            ram = psutil.virtual_memory().percent
-            gpu = self._get_gpu()
+            cpu_raw = psutil.cpu_percent(interval=None)
+            ram_raw = psutil.virtual_memory().percent
+            gpu_raw = self._get_gpu()
+            
+            cpu, gpu, ram = self.telemetry_buffer.update(cpu_raw, gpu_raw, ram_raw)
+            
             packet = f"<T|{now:%H:%M:%S}|{now:%d.%m.%Y}|{cpu:.1f}|{gpu:.1f}|{ram:.1f}>"
             self.serial_connection.write((packet + "\n").encode('utf-8'))
             self.telemetry_sent.emit(packet)
