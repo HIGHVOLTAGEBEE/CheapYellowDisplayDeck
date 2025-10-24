@@ -5,6 +5,15 @@ API:
     KeyCommand: Command data structure
     CommandParser.parse(raw: str) -> KeyCommand
     KeyExecutor.execute(command: KeyCommand) -> tuple[bool, str]
+    
+Supported command formats:
+    - Hotkeys: CTRL+C, WIN+D, etc.
+    - Text: String or CTRL+String
+    - Execute: EXECUTE+notepad.exe
+    - URLs: Webseite (single or double quotes with URL)
+    - File paths: path in quotes
+    - CMD: CMDBEFEHL (command in angle brackets)
+    - Delay: D500 (delay in milliseconds)
 """
 
 import keyboard as kb
@@ -13,6 +22,7 @@ import os
 import subprocess
 import shutil
 import ctypes
+import webbrowser
 from typing import List, Optional
 from dataclasses import dataclass
 from enum import Enum
@@ -37,6 +47,10 @@ class CommandType(Enum):
     KEYSTROKE = "keystroke"
     EXECUTE = "execute"
     TEXT = "text"
+    URL = "url"
+    FILE_PATH = "file_path"
+    CMD = "cmd"
+    DELAY = "delay"
     READY_SIGNAL = "ready_signal"
 
 @dataclass
@@ -47,6 +61,10 @@ class KeyCommand:
     keys: List[str]
     text_content: Optional[str] = None
     execute_path: Optional[str] = None
+    url: Optional[str] = None
+    file_path: Optional[str] = None
+    cmd_command: Optional[str] = None
+    delay_ms: Optional[int] = None
 
 class KeyboardLayoutManager:
     LAYOUTS = {
@@ -95,34 +113,84 @@ class CommandParser:
     def parse(self, raw_command: str) -> KeyCommand:
         raw_command = raw_command.strip()
         
+        # Ready signal
         if raw_command in self.READY_SIGNALS:
             return KeyCommand(CommandType.READY_SIGNAL, raw_command, [], [])
         
+        # Delay command: D<number> (e.g., D500 for 500ms)
+        if raw_command.upper().startswith('D') and len(raw_command) > 1:
+            delay_str = raw_command[1:]
+            if delay_str.isdigit():
+                delay_ms = int(delay_str)
+                return KeyCommand(CommandType.DELAY, raw_command, [], [], delay_ms=delay_ms)
+        
+        # CMD command: <...> (angle brackets)
+        if raw_command.startswith('<') and raw_command.endswith('>'):
+            cmd_text = raw_command[1:-1].strip()
+            return KeyCommand(CommandType.CMD, raw_command, [], [], cmd_command=cmd_text)
+        
+        # Execute program: EXECUTE+path
         if raw_command.upper().startswith('EXECUTE+'):
             return KeyCommand(CommandType.EXECUTE, raw_command, [], [], execute_path=raw_command[8:].strip())
         
-        if '"' in raw_command:
-            parts = raw_command.split('"', 2)
-            prefix = parts[0].rstrip('+') if parts[0] else ''
-            text_content = parts[1] if len(parts) > 1 else ''
-            prefix_keys = [KeyMapper.map_key(k.strip()) for k in prefix.split('+') if k.strip()] if prefix else []
-            modifiers = [k for k in prefix_keys if KeyMapper.is_modifier(k)]
-            keys = [k for k in prefix_keys if not KeyMapper.is_modifier(k)]
-            return KeyCommand(CommandType.TEXT, raw_command, modifiers, keys, text_content=text_content)
+        # URL or file path in single quotes: '...'
+        if raw_command.startswith("|") and raw_command.endswith("|") and len(raw_command) > 2:
+            content = raw_command[1:-1]
+            if self._is_url(content):
+                return KeyCommand(CommandType.URL, raw_command, [], [], url=content)
+            else:
+                return KeyCommand(CommandType.FILE_PATH, raw_command, [], [], file_path=content)
         
+        # Text with double quotes: "..." or CTRL+"..." or URL with "...
+        if '"' in raw_command:
+            # Find the first and last quote
+            first_quote = raw_command.index('"')
+            last_quote = raw_command.rindex('"')
+            
+            if first_quote != last_quote:
+                prefix = raw_command[:first_quote].rstrip('+').strip()
+                text_content = raw_command[first_quote+1:last_quote]
+                
+                # Check if it's a URL (no prefix modifiers)
+                if not prefix and self._is_url(text_content):
+                    return KeyCommand(CommandType.URL, raw_command, [], [], url=text_content)
+                
+                # Regular text command with optional modifiers
+                prefix_keys = [KeyMapper.map_key(k.strip()) for k in prefix.split('+') if k.strip()] if prefix else []
+                modifiers = [k for k in prefix_keys if KeyMapper.is_modifier(k)]
+                keys = [k for k in prefix_keys if not KeyMapper.is_modifier(k)]
+                return KeyCommand(CommandType.TEXT, raw_command, modifiers, keys, text_content=text_content)
+        
+        # Regular keystroke: CTRL+C, WIN+D, etc.
         parts = raw_command.split('+')
         processed_keys = self.layout_manager.transform_keys([KeyMapper.map_key(p.strip()) for p in parts if p.strip()])
         modifiers = [k for k in processed_keys if KeyMapper.is_modifier(k)]
         keys = [k for k in processed_keys if not KeyMapper.is_modifier(k)]
         return KeyCommand(CommandType.KEYSTROKE, raw_command, modifiers, keys)
+    
+    def _is_url(self, text: str) -> bool:
+        """Check if text is a URL"""
+        url_lower = text.lower()
+        return (url_lower.startswith('http://') or 
+                url_lower.startswith('https://') or 
+                url_lower.startswith('www.') or
+                url_lower.startswith('ftp://'))
 
 class KeyExecutor:
     def execute(self, command: KeyCommand) -> tuple[bool, str]:
         try:
             if command.command_type == CommandType.READY_SIGNAL:
                 return True, "Ready signal"
+            elif command.command_type == CommandType.DELAY:
+                return self._execute_delay(command.delay_ms)
             elif command.command_type == CommandType.EXECUTE:
                 return self._execute_program(command.execute_path)
+            elif command.command_type == CommandType.URL:
+                return self._execute_url(command.url)
+            elif command.command_type == CommandType.FILE_PATH:
+                return self._execute_file_path(command.file_path)
+            elif command.command_type == CommandType.CMD:
+                return self._execute_cmd(command.cmd_command)
             elif command.command_type == CommandType.TEXT:
                 return self._execute_text(command)
             elif command.command_type == CommandType.KEYSTROKE:
@@ -131,7 +199,16 @@ class KeyExecutor:
         except Exception as e:
             return False, f"Error: {str(e)}"
     
+    def _execute_delay(self, delay_ms: int) -> tuple[bool, str]:
+        """Wait for specified milliseconds"""
+        try:
+            time.sleep(delay_ms / 1000.0)
+            return True, f"Delayed: {delay_ms}ms"
+        except Exception as e:
+            return False, f"Delay failed: {str(e)}"
+    
     def _execute_program(self, path: str) -> tuple[bool, str]:
+        """Execute a program or application"""
         try:
             if os.name == 'nt':
                 try:
@@ -146,7 +223,65 @@ class KeyExecutor:
         except Exception as e:
             return False, f"Execute failed: {str(e)}"
     
+    def _execute_url(self, url: str) -> tuple[bool, str]:
+        """Open URL in default browser"""
+        try:
+            # Add https:// if no protocol specified
+            if not url.lower().startswith(('http://', 'https://', 'ftp://')):
+                url = 'https://' + url
+            
+            webbrowser.open(url)
+            display_url = url[:50] + '...' if len(url) > 50 else url
+            return True, f"Opened URL: {display_url}"
+        except Exception as e:
+            return False, f"URL open failed: {str(e)}"
+    
+    def _execute_file_path(self, path: str) -> tuple[bool, str]:
+        """Open file or folder in default application"""
+        try:
+            if not os.path.exists(path):
+                return False, f"Path not found: {path}"
+            
+            if os.name == 'nt':
+                os.startfile(path)
+            elif os.name == 'posix':
+                if os.uname().sysname == 'Darwin':  # macOS
+                    subprocess.Popen(['open', path])
+                else:  # Linux
+                    subprocess.Popen(['xdg-open', path])
+            
+            display_path = path[:50] + '...' if len(path) > 50 else path
+            return True, f"Opened: {display_path}"
+        except Exception as e:
+            return False, f"Path open failed: {str(e)}"
+    
+    def _execute_cmd(self, command: str) -> tuple[bool, str]:
+        """Execute command in CMD/terminal"""
+        try:
+            if os.name == 'nt':
+                # Windows: Run in cmd.exe
+                subprocess.Popen(['cmd', '/c', command], 
+                               creationflags=subprocess.CREATE_NEW_CONSOLE)
+            else:
+                # Linux/Mac: Run in terminal
+                if os.uname().sysname == 'Darwin':  # macOS
+                    subprocess.Popen(['osascript', '-e', 
+                                    f'tell application "Terminal" to do script "{command}"'])
+                else:  # Linux
+                    # Try common terminal emulators
+                    terminals = ['gnome-terminal', 'konsole', 'xterm']
+                    for term in terminals:
+                        if shutil.which(term):
+                            subprocess.Popen([term, '-e', command])
+                            break
+            
+            display_cmd = command[:50] + '...' if len(command) > 50 else command
+            return True, f"CMD executed: {display_cmd}"
+        except Exception as e:
+            return False, f"CMD failed: {str(e)}"
+    
     def _execute_text(self, command: KeyCommand) -> tuple[bool, str]:
+        """Type text with optional modifier keys"""
         if command.modifiers or command.keys:
             kb.press_and_release('+'.join(command.modifiers + command.keys))
             time.sleep(0.001)
@@ -156,6 +291,7 @@ class KeyExecutor:
         return True, f"Typed: {preview}"
     
     def _execute_keystroke(self, command: KeyCommand) -> tuple[bool, str]:
+        """Execute keyboard combination"""
         all_keys = command.modifiers + command.keys
         if not all_keys:
             return False, "No keys"
@@ -166,6 +302,7 @@ class KeyExecutor:
         return True, f"Pressed: {combo}"
     
     def _execute_fn_combination(self, keys: List[str]) -> tuple[bool, str]:
+        """Execute function key combinations"""
         fn_keys = [k for k in keys if k != 'fn']
         try:
             kb.press('fn')
