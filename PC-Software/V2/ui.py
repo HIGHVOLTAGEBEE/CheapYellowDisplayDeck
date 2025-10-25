@@ -311,22 +311,31 @@ class SerialKeyboardUI(QMainWindow):
         if self.dropdown_open:
             return
         
-        current_ports = [p.device for p in serial.tools.list_ports.comports()]
+        # Nur CH340-Ports scannen
+        ch340_ports = []
+        for port in serial.tools.list_ports.comports():
+            description_upper = port.description.upper()
+            hwid_upper = port.hwid.upper()
+            
+            if any(keyword in description_upper for keyword in ['CH340', 'USB-SERIAL']) or \
+               'CH340' in hwid_upper:
+                ch340_ports.append(port.device)
         
-        if current_ports == self.available_ports:
+        if ch340_ports == self.available_ports:
             return
         
-        self.available_ports = current_ports
+        self.available_ports = ch340_ports
         current_selection = self.port_combo.currentText().split(' - ')[0] if self.port_combo.currentText() else None
         
         self.port_combo.blockSignals(True)
         self.port_combo.clear()
         
         for port in serial.tools.list_ports.comports():
-            display_text = f"{port.device} - {port.description}"
-            if port.device == self.config.get("default_port"):
-                display_text += " ★"
-            self.port_combo.addItem(display_text)
+            if port.device in ch340_ports:
+                display_text = f"{port.device} - {port.description}"
+                if port.device == self.config.get("default_port"):
+                    display_text += " ★"
+                self.port_combo.addItem(display_text)
         
         if current_selection:
             for i in range(self.port_combo.count()):

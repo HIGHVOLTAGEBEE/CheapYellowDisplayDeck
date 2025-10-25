@@ -2,6 +2,7 @@ import serial, time, psutil, subprocess
 from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal
 from kb_handler import KeyboardLayoutManager, CommandParser, KeyExecutor, CommandType
+import serial.tools.list_ports
 
 class TelemetryBuffer:
     """Exponential Moving Average filter with rate limiting for smooth telemetry values"""
@@ -41,6 +42,28 @@ class TelemetryBuffer:
         
         return self.cpu, self.gpu, self.ram
 
+
+def get_ch340_ports():
+    """Scannt nur nach USB-SERIAL CH340 Ports"""
+    ch340_ports = []
+    ports = serial.tools.list_ports.comports()
+    
+    for port in ports:
+        # CH340 kann verschiedene Beschreibungen haben
+        description_upper = port.description.upper()
+        hwid_upper = port.hwid.upper()
+        
+        if any(keyword in description_upper for keyword in ['CH340', 'USB-SERIAL']) or \
+           'CH340' in hwid_upper:
+            ch340_ports.append({
+                'device': port.device,
+                'description': port.description,
+                'hwid': port.hwid
+            })
+    
+    return ch340_ports
+
+
 class SerialThread(QThread):
     message_received = pyqtSignal(str)
     command_executed = pyqtSignal(str, bool, str)
@@ -60,10 +83,21 @@ class SerialThread(QThread):
         self.telemetry_buffer = TelemetryBuffer(alpha=0.3, max_change_per_sec=10.0)
     
     def run(self):
+        # Try to connect up to 3 times with 500ms delay between attempts
+        connection_attempts = 3
+        for attempt in range(connection_attempts):
+            try:
+                self.serial_connection = serial.Serial(self.port, self.baudrate, timeout=0.25)
+                self.running = True
+                break  # Connection successful
+            except serial.SerialException as e:
+                if attempt < connection_attempts - 1:
+                    time.sleep(0.5)  # Wait 500ms before retry
+                else:
+                    self.error_occurred.emit(f"Serial error after {connection_attempts} attempts: {str(e)}")
+                    return
+        
         try:
-            self.serial_connection = serial.Serial(self.port, self.baudrate, timeout=1)
-            self.running = True
-            
             while self.running:
                 if time.time() - self.last_telemetry >= 0.01 and self.is_ready:
                     self._send_telemetry()
