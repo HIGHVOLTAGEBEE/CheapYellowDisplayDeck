@@ -1,0 +1,12 @@
+Python 3.13
+
+PyQt6
+pyserial
+Keyboard
+psutil
+gputil
+bleak
+asyncio
+
+
+
